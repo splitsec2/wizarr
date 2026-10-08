@@ -108,64 +108,30 @@ class RecentlyAddedMediaWidget(WizardWidget):
         super().__init__("recently_added_media", template)
 
     def get_data(self, _server_type: str, **_kwargs) -> dict[str, Any]:
-        """Fetch recently added media from the server."""
-        server_type = _server_type
+        """Recently added media from the visitor's own server and libraries."""
         limit = _kwargs.get("limit", 6)
-
         try:
-            # Get media client for the server type
-            from app.models import MediaServer
+            from app.services.wizard_scope import (
+                invited_library_names,
+                invited_server,
+            )
 
-            server = MediaServer.query.filter_by(server_type=server_type).first()
-
-            if not server:
-                # Try to get any server if none match the exact type
-                server = MediaServer.query.first()
-
-            if not server:
+            server = invited_server(_server_type)
+            if server is None:
                 return {"items": [], "limit": limit}
-
+            names = invited_library_names(server)
+            if not names:
+                return {"items": [], "limit": limit}
             client = get_media_client(server.server_type, server)
-
             if not client:
                 return {"items": [], "limit": limit}
-
-            # Get recently added items
-            recent_items = self._get_recent_items(client, limit)
-
-            return {"items": recent_items, "limit": limit}
-
+            return {
+                "items": client.get_recent_items_in(names, limit=limit),
+                "limit": limit,
+            }
         except Exception:
             # Return empty data on any error to fail gracefully
             return {"items": [], "limit": limit}
-
-    def _get_recent_items(self, client, limit: int):
-        """Extract recent items from media client."""
-        try:
-            # Use the new get_recent_items method if available
-            if hasattr(client, "get_recent_items"):
-                return client.get_recent_items(limit=limit)
-
-            # Fallback: try to get recent content from libraries
-            libraries = client.libraries()
-            recent_items = []
-
-            # For each library, try to get recent content
-            for library in libraries[:3]:  # Limit to first 3 libraries
-                try:
-                    if hasattr(client, "get_recent_items"):
-                        items = client.get_recent_items(library.get("id"), limit=2)
-                        recent_items.extend(items)
-                except Exception as exc:
-                    logging.debug(
-                        f"Failed to get recent items for library {library.get('id')}: {exc}"
-                    )
-                    continue
-
-            return recent_items[:limit]
-
-        except Exception:
-            return []
 
 
 class CardWidget(WizardWidget):
