@@ -1,11 +1,12 @@
+import ipaddress
 import os
+from functools import lru_cache
 
 from flask import current_app, request, session
 from flask_apscheduler import APScheduler
 from flask_babel import Babel
 from flask_htmx import HTMX
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_restx import Api
@@ -20,11 +21,47 @@ scheduler = APScheduler()
 htmx = HTMX()
 login_manager = LoginManager()
 migrate = Migrate()
+
+
+@lru_cache(maxsize=8)
+def _trusted_networks(spec: str) -> tuple[ipaddress._BaseNetwork, ...]:
+    networks = []
+    for part in spec.split(","):
+        part = part.strip()
+        if part:
+            networks.append(ipaddress.ip_network(part, strict=False))
+    return tuple(networks)
+
+
+def client_ip() -> str:
+    """The visitor's address, for rate limits.
+
+    Behind a reverse proxy or tunnel every request arrives from the proxy, so
+    the visitor's address is read from REAL_IP_HEADER (for example
+    CF-Connecting-IP), but only on requests that come from an address in
+    TRUSTED_PROXIES. From anywhere else the header could be forged, so the
+    connection's own address is used.
+    """
+    remote = request.remote_addr or ""
+    header = os.getenv("REAL_IP_HEADER", "").strip()
+    trusted = os.getenv("TRUSTED_PROXIES", "")
+    if header and trusted and remote:
+        try:
+            address = ipaddress.ip_address(remote)
+        except ValueError:
+            return remote
+        if any(address in net for net in _trusted_networks(trusted)):
+            value = request.headers.get(header, "").split(",")[0].strip()
+            if value:
+                return value
+    return remote
+
+
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=client_ip,
     default_limits=[],  # No default limits
     storage_uri="memory://",
-    enabled=False,  # Explicitly disabled by default
+    enabled=False,  # Off unless RATELIMIT_ENABLED is set (config.py)
 )
 
 # Initialize Flask-RESTX API with OpenAPI configuration
