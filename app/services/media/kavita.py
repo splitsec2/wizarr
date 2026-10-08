@@ -12,7 +12,7 @@ from app.extensions import db
 from app.models import Invitation, User
 from app.services.invites import is_invite_valid
 
-from .client_base import RestApiMixin, register_media_client
+from .client_base import ClientCapabilities, RestApiMixin, register_media_client
 from .utils import (
     DateHelper,
     LibraryAccessHelper,
@@ -70,6 +70,8 @@ class KavitaClient(RestApiMixin):
         - JWT tokens are cached for 1 hour to reduce authentication calls
         - Series listing requires POST with FilterDto (even for basic queries)
     """
+
+    capabilities = ClientCapabilities(disable=True)
 
     @classmethod
     def check_connection(cls, url: str, token: str) -> tuple[bool, str]:
