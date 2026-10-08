@@ -1,6 +1,7 @@
 from app.extensions import db
 from app.models import Invitation, MediaServer, User, invitation_servers
 from app.services.media import plex as plex_service
+from app.services.media.client_base import MediaClient
 
 
 class FakePlexAccount:
@@ -12,6 +13,9 @@ class FakePlexAccount:
 
 
 class FakePlexClient:
+    # The real join tail, running on top of this fake's user creation
+    _record_invited_user = MediaClient._record_invited_user
+
     def __init__(self, media_server):
         self.media_server = media_server
         self.url = media_server.url
