@@ -145,6 +145,20 @@
                            max="999"
                            class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
                   </div>
+                  <!-- Access ends on (a date instead of a number of days) -->
+                  <div>
+                    <label for="access_ends_on"
+                           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                      {{ _("Access ends on") }}
+                    </label>
+                    <input id="access_ends_on"
+                           name="access_ends_on"
+                           type="date"
+                           class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ _("Access lasts through this day. Use this or Duration, not both.") }}
+                    </p>
+                  </div>
                 </div>
                 <!-- LDAP User Creation Section -->
                 {% if ldap_enabled %}
@@ -342,6 +356,17 @@
                             <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
                           </label>
                         {% endif %}
+                        <!-- Per-server end date, overrides "Access ends on" -->
+                        <div>
+                          <label for="access_ends_on_{{ s.id }}"
+                                 class="block text-sm font-medium text-gray-900 dark:text-gray-300">
+                            {{ _("Access ends on (this server only)") }}
+                          </label>
+                          <input id="access_ends_on_{{ s.id }}"
+                                 name="access_ends_on_{{ s.id }}"
+                                 type="date"
+                                 class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                        </div>
                         <!-- Library dropdown-search -->
                         <div class="mt-3 w-full relative">
                           <button id="libBtn{{ s.id }}"
