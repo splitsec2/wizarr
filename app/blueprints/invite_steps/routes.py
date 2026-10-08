@@ -62,10 +62,12 @@ def _open_step(code: str, key: str):
     return invitation, step
 
 
-def _render(template_data: dict, form_action: str):
-    """Render a sign-up page from the join flow, posting back to this step."""
+def _render(invitation, template_data: dict, form_action: str):
+    """Render a sign-up page from the join flow, posting back to this step,
+    with a link back to the checklist."""
     context = {k: v for k, v in template_data.items() if k != "template_name"}
     context["form_action"] = form_action
+    context["back_url"] = url_for("invite_steps.checklist", code=invitation.code)
     return render_template(template_data["template_name"], **context)
 
 
@@ -76,7 +78,7 @@ def _step_page(invitation, step, *, form=None, error=None, code_error=None):
         template_data = dict(data.template_data or {})
         if code_error:
             template_data["code_error"] = code_error
-        return _render(template_data, action)
+        return _render(invitation, template_data, action)
     template_data = _create_join_form_template_data(
         invitation, list(step.servers), form=form, error=error
     )
@@ -88,7 +90,7 @@ def _step_page(invitation, step, *, form=None, error=None, code_error=None):
                 join_form.username.data = earlier.username
             if "email" in join_form and not join_form.email.data:
                 join_form.email.data = earlier.email
-    return _render(template_data, action)
+    return _render(invitation, template_data, action)
 
 
 @invite_steps_bp.route("/j/<code>/steps")
@@ -163,6 +165,7 @@ def run_step(code, key):
             error=result.message or _("Something went wrong. Please try again."),
         )
     return _render(
+        invitation,
         template_data,
         url_for("invite_steps.run_step", code=invitation.code, key=step.key),
     )
