@@ -1,0 +1,55 @@
+# Fork-only (splitsec2/wizarr). Builds ghcr.io/splitsec2/wizarr:sha-<7> from the
+# build/fork-images branch: upstream main plus the operator's open PRs. Never pushes
+# :latest, builds amd64 only, and uses the committed uv.lock. Not part of any upstream PR.
+name: fork-image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [build/fork-images]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: fork-image
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'splitsec2/wizarr'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # A PEP 440 local version sorts just above the release it is built on, so the
+      # update check still reports a newer upstream release and never this one.
+      - name: Version
+        id: version
+        run: |
+          base=$(grep -m1 '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          short=${GITHUB_SHA::7}
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+          echo "app_version=v${base}+fork.${short}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/splitsec2/wizarr:sha-${{ steps.version.outputs.short }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.app_version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/splitsec2/wizarr
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
