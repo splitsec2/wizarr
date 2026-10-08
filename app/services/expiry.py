@@ -6,6 +6,7 @@ from contextlib import suppress
 from sqlalchemy.exc import ResourceClosedError, SQLAlchemyError
 
 from app.extensions import db
+from app.jinja_filters import local_timezone
 from app.models import ExpiredUser, Invitation, Settings, User, invitation_servers
 from app.services.media.service import delete_user, disable_user
 
@@ -75,8 +76,30 @@ def get_server_specific_expiry(
     return result.expires if result else None
 
 
+def access_end(day: datetime.date) -> datetime.datetime:
+    """When access chosen to end "on" ``day`` stops, as UTC.
+
+    Access lasts through the whole of that day in Wizarr's timezone (TZ), so
+    it ends at the following midnight there.
+    """
+    tz = local_timezone() or datetime.UTC
+    midnight = datetime.datetime.combine(
+        day + datetime.timedelta(days=1), datetime.time(0), tzinfo=tz
+    )
+    return midnight.astimezone(datetime.UTC)
+
+
+def local_today() -> datetime.date:
+    """Today's date in Wizarr's timezone (TZ)."""
+    return datetime.datetime.now(local_timezone() or datetime.UTC).date()
+
+
 def set_server_specific_expiry(
-    invitation_id: int, server_id: int, expires: datetime.datetime | None
+    invitation_id: int,
+    server_id: int,
+    expires: datetime.datetime | None,
+    *,
+    commit: bool = True,
 ) -> None:
     """
     Set server-specific expiry date for an invitation-server combination.
@@ -94,7 +117,8 @@ def set_server_specific_expiry(
         )
         .values(expires=expires)
     )
-    db.session.commit()
+    if commit:
+        db.session.commit()
 
 
 def _record_expiry_event(user: User) -> None:
