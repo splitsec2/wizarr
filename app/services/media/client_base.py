@@ -432,6 +432,36 @@ class MediaClient(ABC):
         """
         raise NotImplementedError
 
+    def get_recent_items_in(
+        self, library_names: list[str], limit: int = 10
+    ) -> list[dict]:
+        """Recently added items from the named libraries only.
+
+        Callers that show media to invitees use this, so nothing outside the
+        libraries the person was given can appear. Clients whose
+        ``get_recent_items`` takes the id stored as ``Library.external_id``
+        need nothing more; a client that addresses libraries differently
+        overrides this.
+        """
+        from app.models import Library
+
+        server_id = getattr(self, "server_id", None)
+        if not library_names or server_id is None:
+            return []
+        libraries = Library.query.filter(
+            Library.server_id == server_id, Library.name.in_(library_names)
+        ).all()
+        items: list[dict] = []
+        for library in libraries:
+            if len(items) >= limit:
+                break
+            items.extend(
+                self.get_recent_items(
+                    library_id=library.external_id, limit=limit - len(items)
+                )
+            )
+        return items[:limit]
+
     def get_recent_items(
         self,
         library_id: str | None = None,  # noqa: ARG002

@@ -297,6 +297,26 @@ class PlexClient(MediaClient):
 
         return poster_urls[:limit]
 
+    def get_recent_items_in(
+        self, library_names: list[str], limit: int = 10
+    ) -> list[dict]:
+        """Plex stores plex.tv's global ids as ``Library.external_id``, which
+        the local server can't look up, so find each section by its name."""
+        if not library_names or not self.url:
+            return []
+        wanted = set(library_names)
+        items: list[dict] = []
+        for section in self.server.library.sections():
+            if len(items) >= limit:
+                break
+            if section.title in wanted:
+                items.extend(
+                    self.get_recent_items(
+                        library_id=str(section.key), limit=limit - len(items)
+                    )
+                )
+        return items[:limit]
+
     def get_recent_items(
         self, library_id: str | None = None, limit: int = 10
     ) -> list[dict]:
