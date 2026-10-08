@@ -72,6 +72,10 @@ def get_or_create_secret(key, generator_func):
     return secrets_dict[key]
 
 
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes"}
+
+
 class BaseConfig:
     # Flask
     TEMPLATES_AUTO_RELOAD = True
@@ -79,6 +83,11 @@ class BaseConfig:
     # Sessions
     SESSION_TYPE = "cachelib"  # Changed from 'filesystem' to 'cachelib'
     SESSION_CACHELIB = SESSION_CACHELIB  # Reference the module-level cache
+
+    # Rate limiting is off unless RATELIMIT_ENABLED is set. Behind a reverse
+    # proxy also set TRUSTED_PROXIES and REAL_IP_HEADER (see extensions.client_ip),
+    # or every visitor shares the proxy's address and one limit.
+    RATELIMIT_ENABLED = _env_flag("RATELIMIT_ENABLED")
 
     # Babel / i18n
     LANGUAGES: ClassVar[dict[str, str]] = {
