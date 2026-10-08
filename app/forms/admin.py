@@ -1,7 +1,7 @@
 from flask_babel import lazy_gettext as _l
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, StringField
-from wtforms.validators import DataRequired, EqualTo, Length, Optional, Regexp
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, Regexp
 
 from app.forms.validators import (
     USERNAME_ALLOWED_CHARS_MESSAGE,
@@ -37,6 +37,34 @@ _password_validators = [
     ),
 ]
 
+DISPLAY_NAME_MAX = 40
+
+
+def _display_name_field():
+    return StringField(
+        str(_l("Name")),
+        filters=[strip_filter],
+        validators=[
+            Optional(),
+            Length(
+                max=DISPLAY_NAME_MAX,
+                message=str(_l("Name must be at most 40 characters.")),
+            ),
+        ],
+    )
+
+
+def _access_email_field(required: bool):
+    return StringField(
+        str(_l("Cloudflare Access email")),
+        filters=[strip_filter],
+        validators=[
+            DataRequired() if required else Optional(),
+            Email(message=str(_l("Enter a valid email address."))),
+            Length(max=254),
+        ],
+    )
+
 
 class AdminCreateForm(FlaskForm):
     username = StringField(
@@ -50,6 +78,14 @@ class AdminCreateForm(FlaskForm):
             EqualTo("password", message=str(_l("Passwords must match."))),
         ],
     )
+    display_name = _display_name_field()
+
+
+class AccessAdminCreateForm(FlaskForm):
+    """New admin under Cloudflare Access: who they sign in as, no password."""
+
+    access_email = _access_email_field(required=True)
+    display_name = _display_name_field()
 
 
 class AdminUpdateForm(FlaskForm):
@@ -68,6 +104,8 @@ class AdminUpdateForm(FlaskForm):
             EqualTo("password", message=str(_l("Passwords must match."))),
         ],
     )
+    display_name = _display_name_field()
+    access_email = _access_email_field(required=False)
 
     def validate(self, extra_validators=None):
         # Skip inherited validation if confirm required but password empty

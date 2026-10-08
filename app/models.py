@@ -104,8 +104,13 @@ class Invitation(db.Model):
     # Who the invite is for; joined accounts are named after it. Not used on
     # unlimited invites, which are shared by several people.
     invitee_name = db.Column(db.String, nullable=True)
-    # The admin who created the invite (Cloudflare Access email, or username).
-    created_by = db.Column(db.String, nullable=True)
+    # The admin who created the invite (an API key counts as its creator).
+    created_by_id = db.Column(
+        db.Integer,
+        db.ForeignKey("admin_account.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_by = db.relationship("AdminAccount", foreign_keys=[created_by_id])
     specific_libraries = db.Column(db.String, nullable=True)
     plex_allow_sync = db.Column(db.Boolean, default=False, nullable=True)
     plex_home = db.Column(db.Boolean, default=False, nullable=True)
@@ -244,9 +249,9 @@ class User(db.Model, UserMixin):
         if not self.code:
             return None
         invite = Invitation.query.filter_by(code=self.code).first()
-        if invite is None or not invite.created_by:
+        if invite is None or invite.created_by is None:
             return None
-        return invite.created_by, invite.created
+        return invite.created_by.shown_name, invite.created
 
     def get_library_access(self):
         """Get deserialized library access data."""
@@ -362,6 +367,19 @@ class AdminAccount(db.Model, UserMixin):
     # LDAP/OIDC authentication fields (2025-12)
     auth_source = db.Column(db.String, nullable=False, default="local")
     external_id = db.Column(db.String, nullable=True)
+    # How invites and users show this admin, e.g. "Rob". Falls back to username.
+    display_name = db.Column(db.String, nullable=True)
+
+    @property
+    def shown_name(self) -> str:
+        return self.display_name or self.username
+
+    @property
+    def access_email(self) -> str | None:
+        """The Cloudflare Access email this admin signs in with, if linked."""
+        from app.services.cloudflare_access import AUTH_SOURCE
+
+        return self.external_id if self.auth_source == AUTH_SOURCE else None
 
     # ── helpers ────────────────────────────────────────────────────────────
     def set_password(self, raw_password: str):

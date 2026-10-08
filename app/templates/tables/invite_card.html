@@ -103,7 +103,7 @@
                   </path>
                 </svg>
                 {% if invite.created_by %}
-                  <span>{{ _("Created by %(who)s, %(when)s", who=invite.created_by, when=invite.created|local_date("%b %-d, %Y")) }}</span>
+                  <span>{{ _("Created by %(who)s, %(when)s", who=invite.created_by.shown_name, when=invite.created|local_date("%b %-d, %Y")) }}</span>
                 {% else %}
                   <span>{{ _("Created") }}: {{ invite.created|local_date("%b %-d, %Y at %-I:%M %p") }}</span>
                 {% endif %}
