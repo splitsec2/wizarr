@@ -60,10 +60,15 @@ def _username_from_email(email: str) -> str:
 @login_required
 def list_admins():
     """Render list of admin accounts."""
-    admins = AdminAccount.query.order_by(AdminAccount.username).all()
-    if request.headers.get("HX-Request"):
-        return render_template("settings/admins.html", admins=admins)
-    return render_template("settings/admins.html", admins=admins)
+    return _render_admins()
+
+
+def _render_admins():
+    return render_template(
+        "settings/admins.html",
+        admins=AdminAccount.query.order_by(AdminAccount.username).all(),
+        access=cloudflare_access.status(),
+    )
 
 
 # ── Create ─────────────────────────────────────────────────────────────
@@ -153,8 +158,7 @@ def delete_admin():
     # If the request came from HTMX, send back the refreshed admins partial so the
     # client can swap it in seamlessly (keeping the UI in sync without a full page reload).
     if request.headers.get("HX-Request"):
-        admins = AdminAccount.query.order_by(AdminAccount.username).all()
-        return render_template("settings/admins.html", admins=admins)
+        return _render_admins()
 
     # Non-HTMX fall-back: redirect back to the list page
     return redirect(url_for("admin_accounts.list_admins"))
