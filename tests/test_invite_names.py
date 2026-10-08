@@ -9,7 +9,7 @@ Identity per person), the invite card leads with the name and shows
 import pytest
 
 from app.extensions import db
-from app.models import Identity, Invitation, MediaServer, User
+from app.models import AdminAccount, Identity, Invitation, MediaServer, User
 from app.services.invites import create_invite, mark_server_used
 from tests.test_cloudflare_access_auth import (  # noqa: F401
     _headers,
@@ -99,10 +99,19 @@ def test_created_by_is_the_signed_in_admin(client, session):
     server = _server(session)
     client.post("/invite", data={"server_ids": [str(server.id)]}, headers=HX)
     invite = Invitation.query.one()
-    assert invite.created_by == "testadmin"
+    assert invite.created_by is not None
+    assert invite.created_by.username == "testadmin"
 
 
-def test_created_by_is_the_access_email(client, session, access_mode):  # noqa: F811
+def test_created_by_is_the_access_admin(client, session, access_mode):  # noqa: F811
+    admin = AdminAccount(
+        username="rob",
+        auth_source="cloudflare_access",
+        external_id="admin@example.com",
+        display_name="Rob",
+    )
+    session.add(admin)
+    session.commit()
     token = _token()
     client.get("/login", headers=_headers(token))
     server = _server(session)
@@ -110,7 +119,8 @@ def test_created_by_is_the_access_email(client, session, access_mode):  # noqa: 
         "/invite", data={"server_ids": [str(server.id)]}, headers=_headers(token)
     )
     invite = Invitation.query.one()
-    assert invite.created_by == "admin@example.com"
+    assert invite.created_by == admin
+    assert invite.created_by.shown_name == "Rob"
 
 
 def test_cards_show_the_name_and_who_invited(client, session):
