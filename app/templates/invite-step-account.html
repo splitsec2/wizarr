@@ -48,9 +48,10 @@
                        name="email"
                        id="email"
                        value="{{ values.email }}"
-                       required
-                       autocomplete="email"
-                       class="{{ input_class }}">
+                       readonly
+                       class="{{ input_class }} opacity-75">
+                <a href="{{ url_for('invite_steps.email_gate', code=invitation.code, next=url_for('invite_steps.run_step', code=invitation.code, key=step.key)) }}"
+                   class="mt-1 inline-block text-xs text-gray-600 dark:text-gray-400 underline">{{ _("Use a different email") }}</a>
               </div>
             {% endif %}
             {% if "password" in fields %}

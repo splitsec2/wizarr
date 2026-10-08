@@ -1,0 +1,44 @@
+{# Confirm an email before Wizarr uses it: ask for the address. #}
+{% extends "base.html" %}
+{% block title %}
+  {{ _("Confirm your email") }}
+{% endblock title %}
+{% block main %}
+  <section class="py-5 bg-gray-50 dark:bg-gray-900">
+    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto max-w-md animate__animated animate__fadeIn">
+      <div class="w-full bg-white rounded-lg shadow dark:border dark:bg-gray-800 dark:border-gray-700">
+        <div class="p-6 space-y-4 sm:p-8">
+          <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
+            {{ _("Confirm your email") }}
+          </h1>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            {{ _("We'll email you a 6-digit code to confirm the address is yours.") }}
+          </p>
+          {% if error %}
+            <p class="text-sm text-red-600 dark:text-red-400" id="email-error">{{ error }}</p>
+          {% endif %}
+          <form method="post"
+                class="space-y-4"
+                action="{{ url_for('invite_steps.email_gate', code=invitation.code) }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <div>
+              <label for="email"
+                     class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Email") }}</label>
+              <input type="email"
+                     name="email"
+                     id="email"
+                     value="{{ email }}"
+                     required
+                     autocomplete="email"
+                     class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <button type="submit"
+                    class="w-full text-white bg-primary hover:bg-primary_hover font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+              {{ _("Send code") }}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock main %}
