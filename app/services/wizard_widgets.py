@@ -111,35 +111,35 @@ class RecentlyAddedMediaWidget(WizardWidget):
         super().__init__("recently_added_media", template)
 
     def get_data(self, _server_type: str, **_kwargs) -> dict[str, Any]:
-        """Fetch recently added media from the server."""
-        server_type = _server_type
+        """Recently added media from the visitor's own server and libraries."""
         limit = _kwargs.get("limit", 6)
-
         try:
-            # Get media client for the server type
-            from app.models import MediaServer
-
-            server = MediaServer.query.filter_by(server_type=server_type).first()
-
-            if not server:
-                # Try to get any server if none match the exact type
-                server = MediaServer.query.first()
-
-            if not server:
-                return {"items": [], "limit": limit}
-
-            client = get_media_client(server.server_type, server)
-
-            if not client:
-                return {"items": [], "limit": limit}
-
-            library_names = widget_library_names(server, _kwargs.get("libraries"))
-            recent_items = client.get_recent_items(
-                limit=limit, library_names=library_names
+            from app.services.wizard_scope import (
+                invited_library_names,
+                invited_server,
             )
 
-            return {"items": recent_items, "limit": limit}
-
+            server = invited_server(_server_type)
+            if server is None:
+                return {"items": [], "limit": limit}
+            names = invited_library_names(server)
+            if not names:
+                return {"items": [], "limit": limit}
+            client = get_media_client(server.server_type, server)
+            if not client:
+                return {"items": [], "limit": limit}
+            requested = _kwargs.get("libraries")
+            if requested is not None and str(requested).strip():
+                # A guide can narrow the widget to some libraries, never past
+                # what the invite grants.
+                wanted = {name.strip() for name in str(requested).split(",")}
+                names = [name for name in names if name in wanted]
+                if not names:
+                    return {"items": [], "limit": limit}
+            return {
+                "items": client.get_recent_items_in(names, limit=limit),
+                "limit": limit,
+            }
         except Exception:
             # Return empty data on any error to fail gracefully
             return {"items": [], "limit": limit}
