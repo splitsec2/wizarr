@@ -97,6 +97,30 @@ def set_server_specific_expiry(
     db.session.commit()
 
 
+def _record_expiry_event(user: User) -> None:
+    """Reuse history when an expired account was enabled without extending expiry."""
+    existing = ExpiredUser.query.filter_by(
+        original_user_id=user.id, expired_at=user.expires
+    ).first()
+    if existing is not None:
+        return
+
+    db.session.add(
+        ExpiredUser(
+            original_user_id=user.id,
+            username=user.username,
+            email=user.email,
+            invitation_code=user.code,
+            server_id=user.server_id,
+            expired_at=user.expires,
+            deleted_at=datetime.datetime.now(datetime.UTC),
+        )
+    )
+    # A concurrent insertion must still abort this worker's savepoint before
+    # any media operation; do not treat a uniqueness failure as reusable history.
+    db.session.flush()
+
+
 def delete_user_if_expired() -> list[int]:
     """
     Find users whose `expires` < now, delete them from their associated media servers
@@ -118,17 +142,7 @@ def delete_user_if_expired() -> list[int]:
         savepoint = db.session.begin_nested()
         try:
             # Log the user to expired_users table before deletion
-            expired_user = ExpiredUser(
-                original_user_id=user.id,
-                username=user.username,
-                email=user.email,
-                invitation_code=user.code,
-                server_id=user.server_id,
-                expired_at=user.expires,
-                deleted_at=datetime.datetime.now(datetime.UTC),
-            )
-            db.session.add(expired_user)
-            db.session.flush()  # Ensure it's saved before we delete the user
+            _record_expiry_event(user)  # Ensure it's saved before we delete the user
 
             # Delete the user (handles server-specific deletion internally)
             delete_user(user.id, commit=False)
@@ -202,17 +216,7 @@ def disable_or_delete_user_if_expired() -> list[int]:
         savepoint = db.session.begin_nested()
         try:
             # Log the user to expired_users table before processing
-            expired_user = ExpiredUser(
-                original_user_id=user.id,
-                username=user.username,
-                email=user.email,
-                invitation_code=user.code,
-                server_id=user.server_id,
-                expired_at=user.expires,
-                deleted_at=datetime.datetime.now(datetime.UTC),
-            )
-            db.session.add(expired_user)
-            db.session.flush()  # Ensure it's saved before we process the user
+            _record_expiry_event(user)  # Ensure it's saved before we process the user
 
             # Determine action based on setting and server capability
             should_disable = (
