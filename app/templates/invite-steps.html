@@ -1,0 +1,78 @@
+{# The invite checklist: one step per service, each done, skipped or to do. #}
+{% extends "base.html" %}
+{% block title %}
+  {{ _("Set up your access") }}
+{% endblock title %}
+{% block main %}
+  <section class="py-5 bg-gray-50 dark:bg-gray-900">
+    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto max-w-md animate__animated animate__fadeIn">
+      <div class="w-full bg-white rounded-lg shadow dark:border dark:bg-gray-800 dark:border-gray-700">
+        <div class="p-6 space-y-4 sm:p-8">
+          <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
+            {{ _("Set up your access") }}
+          </h1>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            {{ _("Your invite includes these services. Set them up one at a time. You can skip one and come back to this link later.") }}
+          </p>
+          <ul class="space-y-3" id="invite-steps">
+            {% for step, state in steps %}
+              <li class="flex items-center justify-between gap-3 p-3 rounded-lg border
+                         {% if next_step and step.key == next_step.key %}border-primary{% else %}border-gray-200 dark:border-gray-700{% endif %}"
+                  data-step="{{ step.key }}"
+                  data-state="{{ state or 'todo' }}">
+                <div class="flex items-center gap-2 min-w-0">
+                  {% if state == "done" %}
+                    <svg class="w-5 h-5 text-green-500 shrink-0"
+                         fill="none"
+                         stroke="currentColor"
+                         viewBox="0 0 24 24"
+                         aria-hidden="true">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                  {% else %}
+                    <span class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 shrink-0"></span>
+                  {% endif %}
+                  <span class="text-gray-900 dark:text-white font-medium truncate">{{ step.name }}</span>
+                  {% if state == "done" %}
+                    <span class="text-xs text-green-600 dark:text-green-400">{{ _("Done") }}</span>
+                  {% elif state == "skipped" %}
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ _("Skipped") }}</span>
+                  {% endif %}
+                </div>
+                {% if state != "done" %}
+                  <div class="flex items-center gap-2 shrink-0">
+                    <a href="{{ url_for('invite_steps.run_step', code=invitation.code, key=step.key) }}"
+                       class="text-white bg-primary hover:bg-primary_hover font-medium rounded-lg text-sm px-3 py-2">{{ _("Set up") }}</a>
+                    {% if state != "skipped" %}
+                      <form method="post"
+                            action="{{ url_for('invite_steps.skip_step', code=invitation.code, key=step.key) }}">
+                        <button type="submit"
+                                class="text-gray-700 dark:text-gray-300 hover:underline text-sm px-2 py-2">
+                          {{ _("Skip") }}
+                        </button>
+                      </form>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+          {% if all_finished and any_done %}
+            <p class="text-sm text-gray-700 dark:text-gray-300">{{ _("You're all set.") }}</p>
+            <form method="post"
+                  action="{{ url_for('invite_steps.finish', code=invitation.code) }}">
+              <button type="submit"
+                      class="w-full text-white bg-primary hover:bg-primary_hover font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                {{ _("Continue") }}
+              </button>
+            </form>
+          {% elif all_finished %}
+            <p class="text-sm text-gray-700 dark:text-gray-300">
+              {{ _("Nothing is set up yet. Choose a service above when you're ready.") }}
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock main %}

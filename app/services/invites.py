@@ -135,18 +135,20 @@ def create_invite(form: Any) -> Invitation:
     other_servers = [s for s in servers if s.server_type != "plex"]
     servers = plex_servers + other_servers
 
-    # Fork: after Plex sign-in, the other servers are set up by the password
-    # step, which only handles these types and silently skips the rest. Refuse
-    # the invite rather than send someone a link that can't give them access.
-    if plex_servers:
+    # Fork: a single-use invite sets up each server as its own checklist step
+    # (invite_steps). An unlimited one, or one that creates an LDAP user, still
+    # goes from the Plex sign-in to the password step, which only handles these
+    # types and silently skips the rest, so refuse it rather than send a link
+    # that can't give them access.
+    if plex_servers and (form.get("unlimited") or form.get("create_ldap_user")):
         unhandled = [
             s.name for s in other_servers if s.server_type not in PLEX_COMPANION_TYPES
         ]
         if unhandled:
             names = " and ".join(unhandled)
             raise ValueError(
-                f"Plex can't share an invite with {names} yet. "
-                f"Make a separate invite for {names}."
+                f"Plex can't share an unlimited or LDAP invite with {names} yet. "
+                f"Make it single-use, or make a separate invite for {names}."
             )
 
     # Validate the library selection before creating anything. The invite picker

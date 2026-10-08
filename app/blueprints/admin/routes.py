@@ -31,6 +31,7 @@ from app.models import (
     invitation_servers,
     invitation_users,
 )
+from app.services import invite_steps
 from app.services.expiry import (
     EXPIRED_WINDOW_DAY_CHOICES,
     get_expired_users,
@@ -382,6 +383,10 @@ def invite_table():
 
         # Store library mapping on invitation (not on shared server objects!)
         inv.server_library_map = server_libs
+        # Checklist invites: which services the person has set up or skipped
+        inv.step_states = (
+            invite_steps.server_states(inv) if invite_steps.uses_steps(inv) else {}
+        )
         inv.display_libraries = sorted(
             {lib.name for lib in inv.libraries if lib.server}
         )
