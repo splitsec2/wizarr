@@ -151,6 +151,69 @@ def test_expired_user_event_migration_repairs_existing_data(migration_app, temp_
                 )
 
 
+def test_invite_creator_text_becomes_an_account_link(migration_app, temp_db):
+    """created_by text matching an account's external_id or username keeps its
+    creator as a link; anything else loses it. Downgrade restores the text."""
+    with migration_app.app_context():
+        upgrade(revision="20261008_invite_name")
+
+        engine = create_engine(temp_db)
+        with engine.connect() as connection:
+            connection.execute(
+                text("""
+                    INSERT INTO admin_account
+                        (id, username, created_at, auth_source, external_id)
+                    VALUES
+                        (1, 'admin', '2026-01-01', 'local', NULL),
+                        (2, 'alex', '2026-01-01', 'cloudflare_access',
+                         'alex@example.com')
+                """)
+            )
+            connection.execute(
+                text("""
+                    INSERT INTO invitation (id, code, used, created, created_by)
+                    VALUES
+                        (1, 'BYEMAIL', 0, '2026-10-08', 'Alex@Example.com'),
+                        (2, 'BYNAME', 0, '2026-10-08', 'admin'),
+                        (3, 'NOMATCH', 0, '2026-10-08', 'gone@example.com'),
+                        (4, 'NOBODY', 0, '2026-10-08', NULL)
+                """)
+            )
+            connection.commit()
+
+        upgrade(revision="20261009_access_admins")
+
+        with engine.connect() as connection:
+            links = {
+                row[0]: row[1]
+                for row in connection.execute(
+                    text("SELECT code, created_by_id FROM invitation")
+                )
+            }
+            columns = {
+                row[1]
+                for row in connection.execute(text("PRAGMA table_info(invitation)"))
+            }
+        assert links == {"BYEMAIL": 2, "BYNAME": 1, "NOMATCH": None, "NOBODY": None}
+        assert "created_by" not in columns
+
+        downgrade(revision="20261008_invite_name")
+
+        with engine.connect() as connection:
+            texts = {
+                row[0]: row[1]
+                for row in connection.execute(
+                    text("SELECT code, created_by FROM invitation")
+                )
+            }
+        assert texts == {
+            "BYEMAIL": "alex@example.com",
+            "BYNAME": "admin",
+            "NOMATCH": None,
+            "NOBODY": None,
+        }
+
+
 def test_problematic_migration_specifically(migration_app, temp_db):
     """Test the specific migration that was causing issues in production."""
     with migration_app.app_context():
