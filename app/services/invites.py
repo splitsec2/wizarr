@@ -2,8 +2,10 @@ import datetime
 import logging
 import secrets
 import string
-from typing import Any
+from typing import Any, cast
 
+from flask import has_request_context
+from flask_login import current_user
 from sqlalchemy import and_, or_  # type: ignore
 
 from app.extensions import db
@@ -82,6 +84,42 @@ def _parse_end_date(value: Any) -> datetime.date | None:
 
 # Server types the Plex password step can create accounts on.
 PLEX_COMPANION_TYPES = frozenset({"jellyfin", "emby", "audiobookshelf", "romm"})
+
+
+INVITEE_NAME_MAX = 80
+
+
+def _acting_admin() -> str | None:
+    """Who is making this admin request, for an invite's "created by".
+
+    Behind Cloudflare Access it's the verified token's email (every Access
+    admin signs in as the same local admin). Otherwise it's the signed-in
+    admin's username. API-key requests have neither.
+    """
+    if not has_request_context():
+        return None
+    from app.services import cloudflare_access
+
+    if cloudflare_access.enabled():
+        email = (cloudflare_access.verified_claims() or {}).get("email")
+        if email:
+            return str(email)
+    if current_user.is_authenticated:
+        return getattr(current_user, "username", None)
+    return None
+
+
+def _invitee_name(form: Any) -> str | None:
+    """Read "Who is this for"; a shared (unlimited) invite can't carry one."""
+    name = " ".join(str(form.get("invitee_name") or "").split())
+    if not name:
+        return None
+    if form.get("unlimited"):
+        raise ValueError(
+            "Who is this for is only for an invite one person uses. "
+            "Leave it empty for an unlimited invite."
+        )
+    return name[:INVITEE_NAME_MAX]
 
 
 def create_invite(form: Any) -> Invitation:
@@ -181,6 +219,8 @@ def create_invite(form: Any) -> Invitation:
         expires=expires_lookup.get(form.get("expires")),
         unlimited=bool(form.get("unlimited")),
         duration=form.get("duration") or None,
+        invitee_name=_invitee_name(form),
+        created_by=_acting_admin(),
         plex_allow_sync=bool(form.get("allowsync") or form.get("allow_downloads")),
         plex_home=bool(form.get("plex_home")),
         plex_allow_channels=bool(
@@ -292,6 +332,30 @@ def find_joined_user(
     return user
 
 
+def _name_after_invite(inv: Invitation, user: "User") -> None:
+    """Name a joined account after the invite's "Who is this for".
+
+    Every account made from a single-person invite belongs to that person,
+    so they share one Identity. A name already on that Identity is kept.
+    """
+    if not inv.invitee_name or inv.unlimited:
+        return
+    from app.models import Identity, User
+
+    identity = cast("Identity | None", user.identity)
+    if identity is None:
+        sibling = User.query.filter(
+            User.code == inv.code, User.identity_id.is_not(None)
+        ).first()
+        identity = sibling.identity if sibling else None
+    if identity is None:
+        identity = Identity(primary_email=user.email, primary_username=user.username)
+        db.session.add(identity)
+    if not identity.nickname:
+        identity.nickname = inv.invitee_name
+    user.identity = identity
+
+
 def mark_server_used(
     inv: Invitation, server_id: int, user: "User | None" = None
 ) -> None:
@@ -375,6 +439,8 @@ def mark_server_used(
             logging.info(
                 f"Successfully recorded usage of invitation {inv.code} by user {user.username} on server {server_id}"
             )
+
+        _name_after_invite(inv, user)
 
         # Maintain backward compatibility: set used_by_id to the first user if not set
         if not inv.used_by_id:

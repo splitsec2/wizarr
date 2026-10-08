@@ -96,6 +96,22 @@
                 <!-- Invite Settings Section -->
                 <div class="space-y-4">
                   <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("Invite Settings") }}</h2>
+                  <!-- Who the invite is for -->
+                  <div>
+                    <label for="invitee_name"
+                           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                      {{ _("Who is this for") }}
+                    </label>
+                    <input id="invitee_name"
+                           name="invitee_name"
+                           type="text"
+                           maxlength="80"
+                           autocomplete="off"
+                           class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ _("Their name, as you want to see it in Wizarr. Leave it empty for an unlimited invite.") }}
+                    </p>
+                  </div>
                   <!-- Unlimited Usage -->
                   <label class="flex items-center cursor-pointer">
                     <input id="unlimited"
