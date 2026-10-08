@@ -52,7 +52,12 @@
                   </svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="font-semibold text-foreground dark:text-white truncate">{{ invite.code }}</h3>
+                  {% if invite.invitee_name %}
+                    <h3 class="font-semibold text-foreground dark:text-white truncate">{{ invite.invitee_name }}</h3>
+                    <p class="text-xs text-muted-foreground dark:text-gray-400 truncate">{{ invite.code }}</p>
+                  {% else %}
+                    <h3 class="font-semibold text-foreground dark:text-white truncate">{{ invite.code }}</h3>
+                  {% endif %}
                   <p class="text-sm text-muted-foreground dark:text-gray-400 truncate">
                     {% if invite.used %}
                       {% set all_users = invite.get_all_users() %}
@@ -97,7 +102,11 @@
                   <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd">
                   </path>
                 </svg>
-                <span>{{ _("Created") }}: {{ invite.created|local_date("%b %-d, %Y at %-I:%M %p") }}</span>
+                {% if invite.created_by %}
+                  <span>{{ _("Created by %(who)s, %(when)s", who=invite.created_by, when=invite.created|local_date("%b %-d, %Y")) }}</span>
+                {% else %}
+                  <span>{{ _("Created") }}: {{ invite.created|local_date("%b %-d, %Y at %-I:%M %p") }}</span>
+                {% endif %}
               </div>
               <!-- Expiration information -->
               <div class="flex items-center text-sm text-muted-foreground dark:text-gray-400">
