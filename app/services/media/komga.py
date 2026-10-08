@@ -481,21 +481,14 @@ class KomgaClient(RestApiMixin):
 
             self._set_library_access(user_id, library_ids)
 
-            from app.services.expiry import calculate_user_expiry
-
-            expires = calculate_user_expiry(inv, current_server_id) if inv else None
-
-            self._create_user_with_identity_linking(
-                {
-                    "username": username,
-                    "email": email,
-                    "token": user_id,
-                    "code": code,
-                    "expires": expires,
-                    "server_id": current_server_id,
-                }
+            self._record_invited_user(
+                username=username,
+                email=email,
+                token=user_id,
+                code=code,
+                invitation=inv,
+                server_id=current_server_id,
             )
-            db.session.commit()
 
             return True, ""
 
