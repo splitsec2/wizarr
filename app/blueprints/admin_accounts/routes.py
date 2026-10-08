@@ -34,6 +34,8 @@ def create_admin():
         else:
             acc = AdminAccount()
             acc.username = form.username.data
+            acc.nickname = form.nickname.data or None
+            acc.email = (form.email.data or "").lower() or None
             if form.password.data:
                 acc.set_password(form.password.data)
             db.session.add(acc)
@@ -62,6 +64,8 @@ def edit_admin(admin_id):
             ]
         else:
             acc.username = form.username.data
+            acc.nickname = form.nickname.data or None
+            acc.email = (form.email.data or "").lower() or None
             if form.password.data:
                 acc.set_password(form.password.data)
             db.session.commit()

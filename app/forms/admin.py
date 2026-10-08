@@ -1,7 +1,7 @@
 from flask_babel import lazy_gettext as _l
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, StringField
-from wtforms.validators import DataRequired, EqualTo, Length, Optional, Regexp
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, Regexp
 
 from app.forms.validators import (
     USERNAME_ALLOWED_CHARS_MESSAGE,
@@ -24,6 +24,23 @@ _username_validators = [
         message=str(_l(USERNAME_ALLOWED_CHARS_MESSAGE)),
     ),
 ]
+
+
+def _identity_fields():
+    """Nickname and sign-in email, shared by the create and edit forms."""
+    nickname = StringField(
+        str(_l("Nickname")),
+        filters=[strip_filter],
+        validators=[Optional(), Length(max=40)],
+    )
+    email = StringField(
+        str(_l("Sign-in email")),
+        filters=[strip_filter],
+        validators=[Optional(), Email(), Length(max=254)],
+    )
+    return nickname, email
+
+
 _password_validators = [
     DataRequired(),
     Length(min=8, message=str(_l("Password must be at least 8 characters."))),
@@ -39,6 +56,7 @@ _password_validators = [
 
 
 class AdminCreateForm(FlaskForm):
+    nickname, email = _identity_fields()
     username = StringField(
         str(_l("Username")), filters=[strip_filter], validators=_username_validators
     )
@@ -53,6 +71,7 @@ class AdminCreateForm(FlaskForm):
 
 
 class AdminUpdateForm(FlaskForm):
+    nickname, email = _identity_fields()
     username = StringField(
         str(_l("Username")), filters=[strip_filter], validators=_username_validators
     )

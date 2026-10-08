@@ -190,6 +190,12 @@ def render_jinja(text: str) -> Markup:
         return Markup(escape(text))  # noqa: S704  # Text is explicitly escaped
 
 
+def _admin_name(who):
+    from app.models import admin_display_name
+
+    return admin_display_name(who)
+
+
 def register_filters(app):
     """Register the custom Jinja filters on the given Flask *app*."""
     app.jinja_env.filters.setdefault("server_type_tag", server_type_tag)
@@ -197,6 +203,7 @@ def register_filters(app):
     app.jinja_env.filters.setdefault("server_colour", _server_colour)
     app.jinja_env.filters.setdefault("human_date", human_date)
     app.jinja_env.filters.setdefault("local_date", local_date)
+    app.jinja_env.filters.setdefault("admin_name", _admin_name)
     app.jinja_env.filters.setdefault("nl2br", nl2br)
     app.jinja_env.filters.setdefault("render_jinja", render_jinja)
 

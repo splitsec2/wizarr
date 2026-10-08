@@ -14,6 +14,7 @@
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
             </svg>
             <span class="text-gray-900 dark:text-white font-medium">{{ a.username }}</span>
+            {% if a.nickname %}<span class="ms-2 text-sm text-gray-500 dark:text-gray-400">{{ a.nickname }}</span>{% endif %}
           </div>
           <div class="space-x-2">
             <button hx-get="{{ url_for('admin_accounts.admin_passkeys', admin_id=a.id) }}"

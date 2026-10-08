@@ -55,7 +55,7 @@
                   {% set invited = user.invited_by() %}
                   {% if invited %}
                     <p class="text-xs text-muted-foreground dark:text-gray-400 truncate">
-                      {{ _("Invited by %(who)s, %(when)s", who=invited[0], when=invited[1]|local_date("%b %-d, %Y")) }}
+                      {{ _("Invited by %(who)s, %(when)s", who=invited[0]|admin_name, when=invited[1]|local_date("%b %-d, %Y")) }}
                     </p>
                   {% endif %}
                 </div>

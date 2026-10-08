@@ -328,6 +328,20 @@ class User(db.Model, UserMixin):
 # ───────────────────────────────────────────────────────────────────────────────
 #  Multi-admin support (2025-07)
 # ───────────────────────────────────────────────────────────────────────────────
+def admin_display_name(who: str | None) -> str | None:
+    """Show an admin by nickname: ``who`` is the email or username an invite
+    recorded as its creator. Falls back to ``who`` itself."""
+    if not who:
+        return who
+    account = AdminAccount.query.filter(
+        db.or_(
+            db.func.lower(AdminAccount.email) == who.lower(),
+            AdminAccount.username == who,
+        )
+    ).first()
+    return (account.nickname if account else None) or who
+
+
 class AdminAccount(db.Model, UserMixin):
     """Dedicated model for administrator accounts.
 
@@ -346,6 +360,12 @@ class AdminAccount(db.Model, UserMixin):
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
+
+    # How the admin is shown on invites and users ("Created by Rob"), and the
+    # email they sign in with through Cloudflare Access, which is what an
+    # invite records as its creator.
+    nickname = db.Column(db.String, nullable=True)
+    email = db.Column(db.String, nullable=True)
 
     # LDAP/OIDC authentication fields (2025-12)
     auth_source = db.Column(db.String, nullable=False, default="local")

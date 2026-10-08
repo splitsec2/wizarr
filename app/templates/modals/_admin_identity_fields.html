@@ -1,0 +1,16 @@
+{# Nickname and sign-in email, shared by the create and edit admin modals. #}
+<div>
+  <label for="nickname"
+         class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Nickname") }}</label>
+  {{ form.nickname(class_="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white", placeholder=_("How invites show this admin, e.g. Rob")) }}
+  {% for e in form.nickname.errors %}<p class="text-red-500 text-xs">{{ e }}</p>{% endfor %}
+</div>
+<div>
+  <label for="email"
+         class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Sign-in email") }}</label>
+  {{ form.email(class_="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white") }}
+  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+    {{ _("The email this admin signs in with, so invites they create show their nickname.") }}
+  </p>
+  {% for e in form.email.errors %}<p class="text-red-500 text-xs">{{ e }}</p>{% endfor %}
+</div>
