@@ -13,7 +13,7 @@ from app.models import Invitation, Library, MediaServer, User
 from app.services.media.service import get_client_for_media_server
 from app.services.notifications import notify
 
-from .client_base import MediaClient, register_media_client
+from .client_base import ClientCapabilities, MediaClient, register_media_client
 from .plex_custom import accept_invite_v2, update_shared_server
 
 if TYPE_CHECKING:
@@ -91,6 +91,9 @@ class PlexInvitationError(Exception):
 @register_media_client("plex")
 class PlexClient(MediaClient):
     """Wrapper that connects to Plex using admin credentials."""
+
+    # Plex can only remove a share (removeFriend), so expiry always deletes.
+    capabilities = ClientCapabilities(disable=False)
 
     def __init__(self, *args, **kwargs):
         if "url_key" not in kwargs:
