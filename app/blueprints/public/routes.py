@@ -422,7 +422,17 @@ def password_prompt(code):
                     permissions = _apply_safe_media_user_policy(
                         client, uid, invitation, srv
                     )
-                elif srv.server_type in ("audiobookshelf", "romm"):
+                elif srv.server_type == "audiobookshelf":
+                    uid = client.create_user(
+                        username,
+                        pw,
+                        email=email,
+                        allow_downloads=permissions["allow_downloads"],
+                    )
+                    client.grant_invite_libraries(
+                        uid, invitation, permissions["allow_downloads"]
+                    )
+                elif srv.server_type == "romm":
                     uid = client.create_user(username, pw, email=email)
                 else:
                     continue  # unknown server type
