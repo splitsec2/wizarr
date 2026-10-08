@@ -25,11 +25,33 @@ def login():
                 _("Sign in through Cloudflare Access to reach the admin pages."),
                 403,
             )
-        logging.info(
-            "Admin login via Cloudflare Access: %s",
-            claims.get("email") or claims.get("common_name") or "unknown",
-        )
-        login_user(AdminUser())
+        email = cloudflare_access.verified_email()
+        if email is None:
+            logging.warning(
+                "Cloudflare Access sign-in without an email: %s",
+                claims.get("common_name") or "unknown",
+            )
+            return (
+                _(
+                    "This Cloudflare Access sign-in has no email address, so it can't be matched to a Wizarr admin."
+                ),
+                403,
+            )
+        account = cloudflare_access.account_for_request()
+        if account is None:
+            logging.warning(
+                "Cloudflare Access sign-in for %s matches no admin account", email
+            )
+            return (
+                _(
+                    "%(email)s isn't a Wizarr admin yet. Ask an existing admin to add you under Settings > Admins.",
+                    email=email,
+                ),
+                403,
+                {"Content-Type": "text/plain; charset=utf-8"},
+            )
+        logging.info("Admin login via Cloudflare Access: %s", email)
+        login_user(account)
         return redirect("/")
 
     if os.getenv("DISABLE_BUILTIN_AUTH", "").lower() == "true":
