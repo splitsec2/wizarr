@@ -9,7 +9,9 @@ gets granted.
 The contract:
 
 - ``POST <server url>`` with JSON ``{"verb": "grant" | "disable" | "status",
-  "email": "<address>"}``.
+  "email": "<address>"}``. A ``grant`` from a sign-up that asked for a password
+  also carries ``"password"``, for services the endpoint signs the person into
+  with it. It is never logged here.
 - Signed with HMAC-SHA256 over ``f"{timestamp}.{body}"`` using the server's API
   key as the shared secret, in the headers ``<prefix>Timestamp`` (unix seconds)
   and ``<prefix>Signature`` (hex). The prefix is ``X-Wizarr-`` unless
@@ -66,19 +68,28 @@ def sign(secret: str, timestamp: str, body: bytes) -> str:
 class ProvisioningHookClient(RestApiMixin):
     """Grants and removes access by calling an operator-run signed endpoint."""
 
-    # The invitee gives only an address; expiry disables, never deletes.
-    capabilities = ClientCapabilities(join_fields=("email",), disable=True)
+    # The invitee gives an address and a password the endpoint can sign them
+    # into its services with; expiry disables, never deletes. Those services may
+    # keep a weakly hashed copy (KOReader sync), so the password must be strong.
+    capabilities = ClientCapabilities(
+        join_fields=("email", "password"), disable=True, strong_password=True
+    )
 
     # ------------------------------------------------------------------
     # The endpoint
     # ------------------------------------------------------------------
 
-    def _call(self, verb: str, email: str) -> tuple[bool, dict[str, Any]]:
+    def _call(
+        self, verb: str, email: str, password: str | None = None
+    ) -> tuple[bool, dict[str, Any]]:
         """POST one signed request. Returns (ok, reply); never raises."""
         if not self.url or not self.token:
             return False, {"error": "Provisioning hook URL or secret is not set"}
 
-        body = json.dumps({"verb": verb, "email": email}).encode()
+        payload = {"verb": verb, "email": email}
+        if password:
+            payload["password"] = password
+        body = json.dumps(payload).encode()
         timestamp = str(int(time.time()))
         prefix = _header_prefix()
         headers = {
@@ -200,7 +211,7 @@ class ProvisioningHookClient(RestApiMixin):
     def _do_join(
         self,
         username: str,  # noqa: ARG002
-        password: str,  # noqa: ARG002
+        password: str,
         confirm: str,  # noqa: ARG002
         email: str,
         code: str,
@@ -217,7 +228,7 @@ class ProvisioningHookClient(RestApiMixin):
         if User.query.filter_by(email=email, server_id=server_id).first():
             return False, "This address already has access."
 
-        granted, _reply = self._call("grant", email)
+        granted, _reply = self._call("grant", email, password or None)
         if not granted:
             return False, "Access could not be granted. Please contact the admin."
 
