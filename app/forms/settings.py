@@ -1,8 +1,14 @@
 # app/forms/settings.py
 from flask_babel import lazy_gettext as _l
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, SelectField, StringField
-from wtforms.validators import URL, DataRequired, Optional
+from wtforms import (
+    BooleanField,
+    IntegerField,
+    PasswordField,
+    SelectField,
+    StringField,
+)
+from wtforms.validators import URL, DataRequired, Email, NumberRange, Optional
 
 
 class SettingsForm(FlaskForm):
@@ -54,3 +60,33 @@ class SettingsForm(FlaskForm):
             self.libraries.validators = [DataRequired()]
             # api_key is mandatory for Plex/Jellyfin
             self.api_key.validators = [DataRequired()]
+
+
+class EmailSettingsForm(FlaskForm):
+    """Settings > Email: the SMTP server Wizarr sends mail through."""
+
+    host = StringField(str(_l("SMTP server")), validators=[Optional()])
+    port = IntegerField(
+        str(_l("Port")), validators=[Optional(), NumberRange(min=1, max=65535)]
+    )
+    security = SelectField(
+        str(_l("Encryption")),
+        choices=[
+            ("starttls", "STARTTLS"),
+            ("ssl", "SSL/TLS"),
+            ("none", str(_l("None"))),
+        ],
+        default="starttls",
+    )
+    username = StringField(str(_l("Username")), validators=[Optional()])
+    # Never shown back; left empty it keeps the saved password.
+    password = PasswordField(str(_l("Password")), validators=[Optional()])
+    sender = StringField(str(_l("From address")), validators=[Optional(), Email()])
+
+
+class EmailTestForm(FlaskForm):
+    """Settings > Email: where to send a test message."""
+
+    test_to = StringField(
+        str(_l("Send a test email to")), validators=[DataRequired(), Email()]
+    )
