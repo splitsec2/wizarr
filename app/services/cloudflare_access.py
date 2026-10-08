@@ -122,3 +122,22 @@ def account_for_request():
     return AdminAccount.query.filter_by(
         auth_source=AUTH_SOURCE, external_id=email
     ).first()
+
+
+def status() -> dict[str, Any]:
+    """What Settings shows about Access sign-in. Read-only by design: the two
+    environment variables are the only switch, so an admin session (or a
+    stolen one) can't turn the check off from the app."""
+    from app.models import AdminAccount
+
+    config = _config()
+    linked = AdminAccount.query.filter_by(auth_source=AUTH_SOURCE).count()
+    return {
+        "enabled": config is not None,
+        "team": config[0] if config else None,
+        "signed_in_as": verified_email() if config else None,
+        "linked": linked,
+        "unlinked": AdminAccount.query.count() - linked,
+        "builtin_auth_disabled": os.getenv("DISABLE_BUILTIN_AUTH", "").lower()
+        == "true",
+    }
