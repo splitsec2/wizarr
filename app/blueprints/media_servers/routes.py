@@ -94,6 +94,7 @@ def create_server():
         server.url = data["server_url"]
         server.api_key = data.get("api_key")
         server.external_url = data.get("external_url")
+        server.invitee_notes = (data.get("invitee_notes") or "").strip() or None
         # Universal options (work for all server types)
         server.allow_downloads = bool(data.get("allow_downloads"))
         server.allow_live_tv = bool(data.get("allow_live_tv"))
@@ -192,6 +193,7 @@ def edit_server(server_id):
         server.url = data["server_url"]
         server.api_key = data.get("api_key")
         server.external_url = data.get("external_url")
+        server.invitee_notes = (data.get("invitee_notes") or "").strip() or None
         # Universal options (work for all server types)
         server.allow_downloads = bool(data.get("allow_downloads"))
         server.allow_live_tv = bool(data.get("allow_live_tv"))

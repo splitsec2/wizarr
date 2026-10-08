@@ -140,6 +140,21 @@ def create_invite(form: Any) -> Invitation:
     # goes from the Plex sign-in to the password step, which only handles these
     # types and silently skips the rest, so refuse it rather than send a link
     # that can't give them access.
+    # A server whose password must pass the strong check is only set up by the
+    # checklist's account step, which a shared or LDAP invite doesn't use yet.
+    if form.get("unlimited") or form.get("create_ldap_user"):
+        from app.services.media.client_base import capabilities_for
+
+        strong = [
+            s.name for s in servers if capabilities_for(s.server_type).strong_password
+        ]
+        if strong:
+            names = " and ".join(strong)
+            raise ValueError(
+                f"{names} needs a single-use invite for now, so its password "
+                f"can be checked. Make it single-use, or make a separate invite."
+            )
+
     if plex_servers and (form.get("unlimited") or form.get("create_ldap_user")):
         unhandled = [
             s.name for s in other_servers if s.server_type not in PLEX_COMPANION_TYPES

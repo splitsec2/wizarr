@@ -130,6 +130,13 @@ def enter_wizard(invitation: Invitation) -> str:
     return "/wizard/"
 
 
+def join_servers(
+    servers: list[MediaServer], form_data: dict[str, Any], invitation_code: str
+) -> tuple[list[ServerResult], list[ServerResult]]:
+    """Create the account on each of *servers* from one already-validated form."""
+    return FormBasedWorkflow()._process_servers(servers, form_data, invitation_code)
+
+
 class InvitationWorkflow(ABC):
     """Base class for invitation workflows."""
 
