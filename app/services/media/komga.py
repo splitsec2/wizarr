@@ -12,12 +12,20 @@ from app.extensions import db
 from app.models import Invitation, Library, User
 from app.services.invites import is_invite_valid
 
-from .client_base import EMAIL_RE, RestApiMixin, register_media_client
+from .client_base import (
+    EMAIL_RE,
+    ClientCapabilities,
+    RestApiMixin,
+    register_media_client,
+)
 
 
 @register_media_client("komga")
 class KomgaClient(RestApiMixin):
     """Wrapper around the Komga REST API using credentials from Settings."""
+
+    # Disable removes all library access; there is no account switch.
+    capabilities = ClientCapabilities(disable=True)
 
     @classmethod
     def check_connection(cls, url: str, token: str) -> tuple[bool, str]:

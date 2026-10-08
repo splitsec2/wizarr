@@ -10,7 +10,12 @@ from app.models import Invitation, Library, User
 from app.services.invites import is_invite_valid
 
 from .auth_headers import media_browser_auth_headers
-from .client_base import EMAIL_RE, RestApiMixin, register_media_client
+from .client_base import (
+    EMAIL_RE,
+    ClientCapabilities,
+    RestApiMixin,
+    register_media_client,
+)
 
 if TYPE_CHECKING:
     from app.services.media.user_details import MediaUserDetails
@@ -29,6 +34,8 @@ NOW_PLAYING_BACKDROP_PARAMS = "maxWidth=480&quality=60"
 @register_media_client("jellyfin")
 class JellyfinClient(RestApiMixin):
     """Wrapper around the Jellyfin REST API using credentials from Settings."""
+
+    capabilities = ClientCapabilities(disable=True)
 
     @classmethod
     def check_connection(cls, url: str, token: str) -> tuple[bool, str]:
