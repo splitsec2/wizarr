@@ -1,0 +1,35 @@
+{# Read-only: Cloudflare Access is switched by CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD, never from here. #}
+<div class="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-xs p-4 border border-gray-200 dark:border-gray-700"
+     id="access-status">
+  <div class="flex items-center gap-2">
+    <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ _("Cloudflare Access sign-in") }}</h2>
+    {% if access.enabled %}
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">{{ _("On") }}</span>
+    {% else %}
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">{{ _("Off") }}</span>
+    {% endif %}
+  </div>
+  {% if access.enabled %}
+    <ul class="mt-2 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+      <li>{{ _("Team: %(team)s", team=access.team) }}</li>
+      {% if access.signed_in_as %}
+        <li>{{ _("You signed in as %(email)s, checked against Cloudflare's signing keys on this request.", email=access.signed_in_as) }}</li>
+      {% endif %}
+      <li>{{ _("Admins who can sign in: %(n)s", n=access.linked) }}</li>
+      {% if access.unlinked %}
+        <li class="text-amber-700 dark:text-amber-400">
+          {{ _("Admins with no Cloudflare Access email, who can't sign in: %(n)s", n=access.unlinked) }}
+        </li>
+      {% endif %}
+    </ul>
+  {% elif access.builtin_auth_disabled %}
+    <p class="mt-2 text-sm text-amber-700 dark:text-amber-400">
+      {{ _("Built-in login is disabled, so the admin pages trust anyone who can reach Wizarr.") }}
+    </p>
+  {% else %}
+    <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ _("Admins sign in with Wizarr's own login.") }}</p>
+  {% endif %}
+  <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+    {{ _("Turned on and off with CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD in Wizarr's environment, not from this page.") }}
+  </p>
+</div>
