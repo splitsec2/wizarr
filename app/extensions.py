@@ -181,10 +181,14 @@ def load_user(user_id):
     )
     from .services import cloudflare_access
 
-    # Behind Cloudflare Access the session only counts alongside a valid token,
-    # so a request that skipped Access can't use an admin's session cookie.
-    if cloudflare_access.enabled() and cloudflare_access.verified_claims() is None:
-        return None
+    # Behind Cloudflare Access the session only counts for the account this
+    # request's token maps to: no token, another person's token, or the legacy
+    # shared admin, and the session cookie grants nothing.
+    if cloudflare_access.enabled():
+        account = cloudflare_access.account_for_request()
+        if account is None or user_id != str(account.id):
+            return None
+        return account
 
     # ── legacy single-admin token ───────────────────────────────────────────
     if user_id == "admin":
