@@ -345,3 +345,38 @@ def test_prefill_is_only_for_the_browser_that_did_the_step(
     page = stranger.get(f"/j/STEPS123/steps/{abs_server.id}").get_data(as_text=True)
     assert "sam@example.com" not in page
     assert "plexsam" not in page
+
+
+def test_step_pages_link_back_to_the_checklist(client, plex_abs):
+    _invitation, _plex, abs_server = plex_abs
+    for key in ("plex", str(abs_server.id)):
+        page = client.get(f"/j/STEPS123/steps/{key}").get_data(as_text=True)
+        assert 'href="/j/STEPS123/steps"' in page
+        assert "Back to your checklist" in page
+
+
+def test_ordinary_join_pages_have_no_back_link(client, setup_done):
+    _invite(_server("J", "jellyfin"), code="PLAIN123")
+    page = client.get("/j/PLAIN123").get_data(as_text=True)
+    assert "Back to your checklist" not in page
+
+
+def test_users_show_how_far_their_invite_got(client, plex_abs, fake_plex):
+    _invitation, plex, _abs = plex_abs
+    client.post("/j/STEPS123/steps/plex", data={"token": "t"})
+    user = User.query.filter_by(server_id=plex.id).one()
+    assert user.invite_setup() == [
+        ("AllThePopcorn", "done"),
+        ("AudioBookShelf", "todo"),
+    ]
+    admin_client = client.application.test_client()
+    admin_client.post("/login", data={"username": "admin", "password": "password"})
+    html = admin_client.get("/users/table", headers={"HX-Request": "true"}).get_data(
+        as_text=True
+    )
+    assert "AllThePopcorn ✓" in html
+    assert "AudioBookShelf (to do)" in html
+
+
+def test_accounts_from_ordinary_invites_show_no_setup(session):
+    assert User(username="x", code=None).invite_setup() == []

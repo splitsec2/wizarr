@@ -244,6 +244,22 @@ class User(db.Model, UserMixin):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+    def invite_setup(self) -> list[tuple[str, str]]:
+        """Each service on the checklist invite this account joined with, and
+        whether it was set up ("done"), "skipped" or is still "todo"."""
+        if not self.code:
+            return []
+        from app.services import invite_steps
+
+        invitation = invite_steps.find_invitation(self.code)
+        if invitation is None or not invite_steps.uses_steps(invitation):
+            return []
+        states = invite_steps.server_states(invitation)
+        return [
+            (step.name, invite_steps.state_of(step, states) or "todo")
+            for step in invite_steps.steps_for(invitation)
+        ]
+
     def invited_by(self) -> tuple[str, datetime] | None:
         """Who created the invite this account joined with, and when."""
         if not self.code:
