@@ -1,0 +1,55 @@
+{# Confirm an email before Wizarr uses it: enter the code that was sent. #}
+{% extends "base.html" %}
+{% block title %}
+  {{ _("Enter your code") }}
+{% endblock title %}
+{% block main %}
+  <section class="py-5 bg-gray-50 dark:bg-gray-900">
+    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto max-w-md animate__animated animate__fadeIn">
+      <div class="w-full bg-white rounded-lg shadow dark:border dark:bg-gray-800 dark:border-gray-700">
+        <div class="p-6 space-y-4 sm:p-8">
+          <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
+            {{ _("Enter your code") }}
+          </h1>
+          <p class="text-sm text-gray-600 dark:text-gray-400">
+            {{ _("We sent a 6-digit code to %(email)s. It expires in 10 minutes.", email=email) }}
+          </p>
+          {% if error %}
+            <p class="text-sm text-red-600 dark:text-red-400" id="verify-error">{{ error }}</p>
+          {% endif %}
+          <form method="post"
+                class="space-y-4"
+                action="{{ url_for('invite_steps.verify_code', code=invitation.code) }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <div>
+              <label for="code"
+                     class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Code") }}</label>
+              <input type="text"
+                     name="code"
+                     id="code"
+                     inputmode="numeric"
+                     autocomplete="one-time-code"
+                     maxlength="6"
+                     required
+                     class="bg-gray-50 border border-gray-300 text-gray-900 text-lg tracking-widest rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+            </div>
+            <button type="submit"
+                    class="w-full text-white bg-primary hover:bg-primary_hover font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+              {{ _("Continue") }}
+            </button>
+          </form>
+          <div class="flex justify-between text-sm">
+            <form method="post"
+                  action="{{ url_for('invite_steps.email_gate', code=invitation.code) }}">
+              <input type="hidden" name="next" value="{{ next_url }}">
+              <input type="hidden" name="email" value="{{ email }}">
+              <button type="submit" class="text-primary underline">{{ _("Send a new code") }}</button>
+            </form>
+            <a href="{{ url_for('invite_steps.email_gate', code=invitation.code, next=next_url) }}"
+               class="text-gray-600 dark:text-gray-400 underline">{{ _("Use a different email") }}</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock main %}

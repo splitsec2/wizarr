@@ -119,6 +119,12 @@ def fake_plex(monkeypatch):
     return calls
 
 
+def _verified(client, code, email):
+    """As if this browser proved *email* with an emailed code for invite *code*."""
+    with client.session_transaction() as sess:
+        sess["invite_steps_verified"] = {code.lower(): email}
+
+
 def _states(invitation):
     return {
         row.server_id: row.state
@@ -198,6 +204,7 @@ def test_a_done_step_cannot_run_again(client, plex_abs, fake_plex):
 def test_next_step_is_prefilled_from_the_earlier_account(client, plex_abs, fake_plex):
     _invitation, _plex, abs_server = plex_abs
     client.post("/j/STEPS123/steps/plex", data={"token": "t"})
+    _verified(client, "STEPS123", "sam@example.com")
     page = client.get("/j/STEPS123/steps/account").get_data(as_text=True)
     assert 'action="/j/STEPS123/steps/account"' in page
     assert 'value="plexsam"' in page
@@ -208,6 +215,7 @@ def test_form_step_creates_the_account_on_that_server_only(
     client, plex_abs, fake_media
 ):
     invitation, plex, abs_server = plex_abs
+    _verified(client, "STEPS123", "listener@example.com")
     resp = client.post(
         "/j/STEPS123/steps/account",
         data={
@@ -225,6 +233,7 @@ def test_form_step_creates_the_account_on_that_server_only(
 
 def test_form_step_errors_stay_on_the_step(client, plex_abs, fake_media):
     _invitation, _plex, abs_server = plex_abs
+    _verified(client, "STEPS123", "listener@example.com")
     resp = client.post(
         "/j/STEPS123/steps/account",
         data={"code": "STEPS123", "username": "x"},
@@ -236,6 +245,7 @@ def test_form_step_errors_stay_on_the_step(client, plex_abs, fake_media):
 
 def test_skip_then_set_up_later(client, plex_abs, fake_media):
     invitation, _plex, abs_server = plex_abs
+    _verified(client, "STEPS123", "listener@example.com")
     client.post("/j/STEPS123/steps/account/skip")
     assert _states(invitation) == {abs_server.id: "skipped"}
     assert client.get("/j/STEPS123/steps/account").status_code == 200
@@ -349,6 +359,7 @@ def test_prefill_is_only_for_the_browser_that_did_the_step(
 
 def test_step_pages_link_back_to_the_checklist(client, plex_abs):
     _invitation, _plex, abs_server = plex_abs
+    _verified(client, "STEPS123", "sam@example.com")
     for key in ("plex", "account"):
         page = client.get(f"/j/STEPS123/steps/{key}").get_data(as_text=True)
         assert 'href="/j/STEPS123/steps"' in page
