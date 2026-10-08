@@ -65,6 +65,21 @@ def _get_form_list(form: Any, key: str) -> list[str]:
     return []
 
 
+def _parse_end_date(value: Any) -> datetime.date | None:
+    """Read an "Access ends on" date (YYYY-MM-DD); empty means none."""
+    if not value:
+        return None
+    from app.services.expiry import local_today
+
+    try:
+        day = datetime.date.fromisoformat(str(value))
+    except ValueError:
+        raise ValueError("Access ends on is not a valid date.") from None
+    if day < local_today():
+        raise ValueError("Access ends on is in the past.")
+    return day
+
+
 def create_invite(form: Any) -> Invitation:
     """Takes a WTForms or dict-like `form` with the same keys as your old version."""
     # generate or validate provided code
@@ -130,6 +145,16 @@ def create_invite(form: Any) -> Invitation:
             "untouched to grant access to all enabled libraries."
         )
 
+    # "Access ends on": one date for every server, optionally overridden per
+    # server. Each becomes the per-server expiry the join already honours.
+    ends_on = _parse_end_date(form.get("access_ends_on"))
+    if ends_on and form.get("duration"):
+        raise ValueError("Use either Duration or Access ends on, not both.")
+    server_ends_on = {
+        s.id: _parse_end_date(form.get(f"access_ends_on_{s.id}")) or ends_on
+        for s in servers
+    }
+
     invite = Invitation(
         code=code,
         used=False,
@@ -179,6 +204,15 @@ def create_invite(form: Any) -> Invitation:
         db.session.flush()  # Ensure the delete is committed before adding new records
 
         invite.servers.extend(servers)
+        db.session.flush()
+
+        from app.services.expiry import access_end, set_server_specific_expiry
+
+        for server_id, day in server_ends_on.items():
+            if day:
+                set_server_specific_expiry(
+                    invite.id, server_id, access_end(day), commit=False
+                )
 
     # Wire up library associations (resolved_libraries computed and validated above)
     if resolved_libraries:

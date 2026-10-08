@@ -2,7 +2,7 @@ import contextlib
 import logging
 import os
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from markupsafe import Markup, escape
 
@@ -58,6 +58,11 @@ def _resolve_local_timezone():
 
 
 _LOCAL_TIMEZONE = _resolve_local_timezone()
+
+
+def local_timezone():
+    """Wizarr's local timezone (TZ), for code outside the template filters."""
+    return _LOCAL_TIMEZONE
 
 
 def _server_colour(server_type: str) -> str:
@@ -190,6 +195,13 @@ def render_jinja(text: str) -> Markup:
         return Markup(escape(text))  # noqa: S704  # Text is explicitly escaped
 
 
+def access_last_day(value) -> str:
+    """The last full day of access that ends at ``value`` (a local midnight)."""
+    if not isinstance(value, datetime):
+        return local_date(value)
+    return local_date(value - timedelta(seconds=1), "%b %-d, %Y")
+
+
 def register_filters(app):
     """Register the custom Jinja filters on the given Flask *app*."""
     app.jinja_env.filters.setdefault("server_type_tag", server_type_tag)
@@ -197,6 +209,7 @@ def register_filters(app):
     app.jinja_env.filters.setdefault("server_colour", _server_colour)
     app.jinja_env.filters.setdefault("human_date", human_date)
     app.jinja_env.filters.setdefault("local_date", local_date)
+    app.jinja_env.filters.setdefault("access_last_day", access_last_day)
     app.jinja_env.filters.setdefault("nl2br", nl2br)
     app.jinja_env.filters.setdefault("render_jinja", render_jinja)
 
