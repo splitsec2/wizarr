@@ -1,7 +1,9 @@
 """
-A Plex invite sets up its other servers in the password step after Plex
-sign-in, and that step skips any server type it doesn't handle. Such an
-invite is refused instead of silently giving no access.
+An unlimited (or LDAP-creating) Plex invite sets up its other servers in the
+password step after Plex sign-in, and that step skips any server type it
+doesn't handle. Such an invite is refused instead of silently giving no access.
+A single-use invite sets up each server as its own checklist step, so any mix
+is allowed there.
 """
 
 import pytest
@@ -19,12 +21,19 @@ def _server(session, name, server_type):
     return server
 
 
-def test_plex_with_an_unhandled_type_is_refused(session):
+@pytest.mark.parametrize("flag", ["unlimited", "create_ldap_user"])
+def test_plex_with_an_unhandled_type_is_refused(session, flag):
     plex = _server(session, "Movies", "plex")
     books = _server(session, "Books", "kavita")
-    with pytest.raises(ValueError, match="Make a separate invite for Books"):
-        create_invite({"server_ids": [str(plex.id), str(books.id)]})
+    with pytest.raises(ValueError, match="make a separate invite for Books"):
+        create_invite({"server_ids": [str(plex.id), str(books.id)], flag: "1"})
     assert Invitation.query.count() == 0
+
+
+def test_single_use_plex_with_any_type_is_allowed(session):
+    plex = _server(session, "Movies", "plex")
+    books = _server(session, "Books", "kavita")
+    assert create_invite({"server_ids": [str(plex.id), str(books.id)]})
 
 
 @pytest.mark.parametrize("server_type", ["audiobookshelf", "jellyfin"])
