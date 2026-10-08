@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -11,12 +10,15 @@ from app.models import Invitation, Library, User
 from app.services.invites import is_invite_valid
 
 from .auth_headers import media_browser_auth_headers
-from .client_base import ClientCapabilities, RestApiMixin, register_media_client
+from .client_base import (
+    EMAIL_RE,
+    ClientCapabilities,
+    RestApiMixin,
+    register_media_client,
+)
 
 if TYPE_CHECKING:
     from app.services.media.user_details import MediaUserDetails
-
-EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}$")
 
 
 @register_media_client("jellyfin")
@@ -602,25 +604,14 @@ class JellyfinClient(RestApiMixin):
 
             self.set_policy(user_id, current_policy)
 
-            from app.services.expiry import calculate_user_expiry
-
-            expires = (
-                calculate_user_expiry(inv, getattr(self, "server_id", None))
-                if inv
-                else None
+            self._record_invited_user(
+                username=username,
+                email=email,
+                token=user_id,
+                code=code,
+                invitation=inv,
+                server_id=server_id,
             )
-
-            self._create_user_with_identity_linking(
-                {
-                    "username": username,
-                    "email": email,
-                    "token": user_id,
-                    "code": code,
-                    "expires": expires,
-                    "server_id": server_id,
-                }
-            )
-            db.session.commit()
 
             return True, ""
 

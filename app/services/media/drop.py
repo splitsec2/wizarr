@@ -5,7 +5,6 @@ and invitation management through a System token with appropriate scopes.
 """
 
 import logging
-import re
 from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
@@ -15,13 +14,12 @@ from sqlalchemy import or_
 from app.extensions import db
 from app.models import Invitation, User
 from app.services.invites import is_invite_valid
-from app.services.media.client_base import RestApiMixin, register_media_client
+from app.services.media.client_base import EMAIL_RE, RestApiMixin, register_media_client
 
 if TYPE_CHECKING:
     from app.services.media.user_details import MediaUserDetails
 
 # Simple email validation pattern
-EMAIL_RE = re.compile(r"[^@]+@[^@]+\.[^@]+")
 
 
 @register_media_client("drop")
@@ -498,25 +496,13 @@ class DropClient(RestApiMixin):
             # Get invitation for expiry calculation
             inv = Invitation.query.filter_by(code=code).first()
 
-            from app.services.expiry import calculate_user_expiry
-
-            expires = (
-                calculate_user_expiry(inv, getattr(self, "server_id", None))
-                if inv
-                else None
+            self._record_invited_user(
+                username=username,
+                email=email,
+                token=user_id,
+                code=code,
+                invitation=inv,
             )
-
-            self._create_user_with_identity_linking(
-                {
-                    "username": username,
-                    "email": email,
-                    "token": user_id,
-                    "code": code,
-                    "expires": expires,
-                    "server_id": getattr(self, "server_id", None),
-                }
-            )
-            db.session.commit()
 
             return True, ""
 

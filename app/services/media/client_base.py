@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -30,6 +31,9 @@ if TYPE_CHECKING:
 
 # Holds mapping of server_type -> MediaClient subclass
 CLIENTS: dict[str, type[MediaClient]] = {}
+
+# The one e-mail check every client and the join flow use.
+EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 
 def register_media_client(name: str):
@@ -237,7 +241,6 @@ class MediaClient(ABC):
         # Check if this is part of a multi-server invitation
         if code:
             from app.models import Invitation
-            from app.services.media.service import EMAIL_RE
 
             invitation = Invitation.query.filter_by(code=code).first()
 
@@ -262,6 +265,39 @@ class MediaClient(ABC):
 
         new_user = User(**user_kwargs)
         db.session.add(new_user)
+        return new_user
+
+    def _record_invited_user(
+        self,
+        *,
+        username: str,
+        email: str,
+        token: str,
+        code: str,
+        invitation=None,
+        server_id: int | None = None,
+    ) -> User:
+        """Save the local row for someone who just joined through an invite.
+
+        The expiry comes from the invite (a per-server end date first, then the
+        invite's duration). The row is identity-linked and committed.
+        """
+        from app.services.expiry import calculate_user_expiry
+
+        if server_id is None:
+            server_id = getattr(self, "server_id", None)
+        expires = calculate_user_expiry(invitation, server_id) if invitation else None
+        new_user = self._create_user_with_identity_linking(
+            {
+                "username": username,
+                "email": email,
+                "token": token,
+                "code": code,
+                "expires": expires,
+                "server_id": server_id,
+            }
+        )
+        db.session.commit()
         return new_user
 
     @abstractmethod
