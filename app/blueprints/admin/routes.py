@@ -32,6 +32,7 @@ from app.models import (
     invitation_servers,
     invitation_users,
 )
+from app.services import invite_steps
 from app.services.expiry import get_expiring_this_week_users
 from app.services.identity_linking import link_user_accounts, primary_account
 from app.services.invites import create_invite
@@ -400,6 +401,10 @@ def invite_table():
 
         # Store library mapping on invitation (not on shared server objects!)
         inv.server_library_map = server_libs
+        # Checklist invites: which services the person has set up or skipped
+        inv.step_states = (
+            invite_steps.server_states(inv) if invite_steps.uses_steps(inv) else {}
+        )
         inv.display_libraries = sorted(
             {lib.name for lib in inv.libraries if lib.server}
         )

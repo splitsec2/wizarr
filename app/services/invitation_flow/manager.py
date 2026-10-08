@@ -55,6 +55,10 @@ class InvitationFlowManager:
             # Validate invitation (reuse existing logic)
             valid, message = is_invite_valid(code)
             if not valid:
+                # A finished checklist is "used", but its link still shows the ticks.
+                finished = self._checklist_redirect(code, finished_only=True)
+                if finished is not None:
+                    return finished
                 return InvitationResult(
                     status=ProcessingStatus.INVALID_INVITATION,
                     message=message,
@@ -122,6 +126,11 @@ class InvitationFlowManager:
                         "wizard_bundle_id": bundle_id if bundle_id else None,
                     },
                 )
+
+            # A single-use invite for several services is a checklist of steps.
+            checklist = self._checklist_redirect(code)
+            if checklist is not None:
+                return checklist
 
             # Create appropriate workflow and show initial template
             # (Requirements 7.4, 7.5: Allow access if pre-wizard complete or no pre-invite steps)
@@ -259,6 +268,27 @@ class InvitationFlowManager:
                 continue
 
         return False, None
+
+    def _checklist_redirect(
+        self, code: str, *, finished_only: bool = False
+    ) -> InvitationResult | None:
+        from app.services import invite_steps
+
+        invitation = invite_steps.find_invitation(code)
+        if (
+            invitation is None
+            or invite_steps.is_expired(invitation)
+            or not invite_steps.uses_steps(invitation)
+            or (finished_only and not invitation.used)
+        ):
+            return None
+        return InvitationResult(
+            status=ProcessingStatus.REDIRECT_REQUIRED,
+            message="Invite checklist",
+            successful_servers=[],
+            failed_servers=[],
+            redirect_url=url_for("invite_steps.checklist", code=invitation.code),
+        )
 
     def _create_error_result(self, message: str) -> InvitationResult:
         """Create generic error result."""

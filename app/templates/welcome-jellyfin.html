@@ -102,7 +102,7 @@
                 </div>
               {% endif %}
               <form class="space-y-3 md:space-y-4"
-                    action="{{ url_for('public.process_invitation') }}"
+                    action="{{ form_action or url_for('public.process_invitation') }}"
                     method="post">
                 {{ form.hidden_tag() }}
                 {% set fields = join_fields | default(["username", "email", "password"]) %}
@@ -395,7 +395,7 @@
           const mainContainer = document.getElementById('main-container');
           const pageHeader = document.getElementById('page-header');
           const pageFooter = document.getElementById('page-footer');
-          const form = document.querySelector('form[action="{{ url_for("public.process_invitation") }}"]');
+          const form = document.querySelector('form[action="{{ form_action or url_for("public.process_invitation") }}"]');
           const submitBtn = document.getElementById('submit-btn');
           const btnText = document.getElementById('btn-text');
           const btnLoading = document.getElementById('btn-loading');
