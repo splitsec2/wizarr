@@ -162,6 +162,15 @@
                   {% endif %}
                 </div>
               {% endif %}
+              {% if invite.people_progress %}
+                <div class="text-xs text-muted-foreground dark:text-gray-400"
+                     data-people-progress>
+                  <span>{{ _("People") }}:</span>
+                  {% for email, done in invite.people_progress.items() %}
+                    <div>{{ email }}: {{ _("%(done)s of %(total)s set up", done=done, total=invite.servers|length) }}</div>
+                  {% endfor %}
+                </div>
+              {% endif %}
               <!-- Libraries -->
               {% if invite.servers %}
                 <div class="flex items-start text-sm text-muted-foreground dark:text-gray-400">

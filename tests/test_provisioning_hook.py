@@ -203,6 +203,12 @@ def test_connection_check(hook, status, token, expected):
     assert ok is expected
 
 
+def _verified(client, code, email):
+    """As if this browser proved *email* with an emailed code for invite *code*."""
+    with client.session_transaction() as sess:
+        sess["invite_steps_verified"] = {code.lower(): email}
+
+
 def _single_use_invite(server, code="BOOKS0001"):
     invitation = Invitation(code=code, used=False, duration="30")
     invitation.servers.append(server)
@@ -216,6 +222,9 @@ def test_invite_asks_for_an_email_and_one_strong_password(client, session, hook)
     _single_use_invite(server)
 
     assert client.get("/j/BOOKS0001").headers["Location"].endswith("/j/BOOKS0001/steps")
+    gate = client.get("/j/BOOKS0001/steps/account")
+    assert "/j/BOOKS0001/steps/email" in gate.headers["Location"]
+    _verified(client, "BOOKS0001", "reader@example.com")
     body = client.get("/j/BOOKS0001/steps/account").get_data(as_text=True)
 
     assert 'name="email"' in body
@@ -227,6 +236,7 @@ def test_invite_asks_for_an_email_and_one_strong_password(client, session, hook)
 def test_invite_submission_grants_with_the_chosen_password(client, session, hook):
     server = _server()
     _single_use_invite(server)
+    _verified(client, "BOOKS0001", "reader@example.com")
 
     client.post(
         "/j/BOOKS0001/steps/account",

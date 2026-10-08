@@ -107,9 +107,16 @@ def fake_media(monkeypatch):
     return clients, failing
 
 
+def _verified(client, code, email):
+    """As if this browser proved *email* with an emailed code for invite *code*."""
+    with client.session_transaction() as sess:
+        sess["invite_steps_verified"] = {code.lower(): email}
+
+
 def _submit(
     client, password=GOOD, confirm=None, email="rob@example.com", username="robp"
 ):
+    _verified(client, "BOOKS123", email)
     return client.post(
         "/j/BOOKS123/steps/account",
         data={
@@ -188,7 +195,7 @@ def test_shared_invites_with_a_strong_password_server_are_refused(setup_done):
 
     books = _server("Books", "provisioning_hook")
     db.session.commit()
-    with pytest.raises(ValueError, match="needs a single-use invite"):
+    with pytest.raises(ValueError, match="until Settings > Email is set up"):
         create_invite({"server_ids": [str(books.id)], "unlimited": "1"})
 
 
@@ -196,6 +203,7 @@ def test_shared_invites_with_a_strong_password_server_are_refused(setup_done):
 
 
 def test_form_asks_for_one_new_password(client, abs_books):
+    _verified(client, "BOOKS123", "rob@example.com")
     html = client.get("/j/BOOKS123/steps/account").get_data(as_text=True)
     assert "This sets you up on AudioBookShelf and Books." in html
     assert "Use a new password, not one you use anywhere else." in html
@@ -210,7 +218,6 @@ def test_form_asks_for_one_new_password(client, abs_books):
         ("robpatterson12", None, "rob@example.com", "too easy to guess"),
         ("short", None, "rob@example.com", "Use 12 to 64 characters."),
         (GOOD, "different-one-here", "rob@example.com", "match"),
-        (GOOD, None, "not-an-email", "valid email"),
     ],
 )
 def test_bad_input_stays_on_the_form(

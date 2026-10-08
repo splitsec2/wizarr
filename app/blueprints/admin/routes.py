@@ -384,8 +384,19 @@ def invite_table():
         # Store library mapping on invitation (not on shared server objects!)
         inv.server_library_map = server_libs
         # Checklist invites: which services the person has set up or skipped
+        uses_steps = invite_steps.uses_steps(inv)
+        shared = uses_steps and invite_steps.multi_use(inv)
         inv.step_states = (
-            invite_steps.server_states(inv) if invite_steps.uses_steps(inv) else {}
+            invite_steps.server_states(inv) if uses_steps and not shared else {}
+        )
+        # A shared invite: how far each person who proved their email got.
+        inv.people_progress = (
+            {
+                email: sum(1 for state in states.values() if state == "done")
+                for email, states in invite_steps.people(inv).items()
+            }
+            if shared
+            else {}
         )
         inv.display_libraries = sorted(
             {lib.name for lib in inv.libraries if lib.server}

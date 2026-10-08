@@ -135,35 +135,40 @@ def create_invite(form: Any) -> Invitation:
     other_servers = [s for s in servers if s.server_type != "plex"]
     servers = plex_servers + other_servers
 
-    # Fork: a single-use invite sets up each server as its own checklist step
-    # (invite_steps). An unlimited one, or one that creates an LDAP user, still
-    # goes from the Plex sign-in to the password step, which only handles these
-    # types and silently skips the rest, so refuse it rather than send a link
-    # that can't give them access.
-    # A server whose password must pass the strong check is only set up by the
-    # checklist's account step, which a shared or LDAP invite doesn't use yet.
-    if form.get("unlimited") or form.get("create_ldap_user"):
+    # Fork: invites go through the checklist (invite_steps), where every server
+    # is set up by its own step. Two kinds still use the old flow: one that
+    # creates an LDAP user, and a shared invite while Settings > Email isn't set
+    # up (people on a shared invite prove their email with a code). The old flow
+    # can't check a strong password, and after the Plex sign-in its password
+    # step only handles some types and silently skips the rest, so refuse those
+    # invites rather than send a link that can't give access.
+    from app.services import mailer
+
+    old_flow = bool(form.get("create_ldap_user")) or (
+        bool(form.get("unlimited")) and not mailer.is_configured()
+    )
+    if old_flow:
         from app.services.media.client_base import capabilities_for
 
+        why = (
+            "an invite that creates an LDAP user"
+            if form.get("create_ldap_user")
+            else "an unlimited invite until Settings > Email is set up"
+        )
         strong = [
             s.name for s in servers if capabilities_for(s.server_type).strong_password
         ]
-        if strong:
-            names = " and ".join(strong)
+        unhandled = (
+            [s.name for s in other_servers if s.server_type not in PLEX_COMPANION_TYPES]
+            if plex_servers
+            else []
+        )
+        blocked = strong + [name for name in unhandled if name not in strong]
+        if blocked:
+            names = " and ".join(blocked)
             raise ValueError(
-                f"{names} needs a single-use invite for now, so its password "
-                f"can be checked. Make it single-use, or make a separate invite."
-            )
-
-    if plex_servers and (form.get("unlimited") or form.get("create_ldap_user")):
-        unhandled = [
-            s.name for s in other_servers if s.server_type not in PLEX_COMPANION_TYPES
-        ]
-        if unhandled:
-            names = " and ".join(unhandled)
-            raise ValueError(
-                f"Plex can't share an unlimited or LDAP invite with {names} yet. "
-                f"Make it single-use, or make a separate invite for {names}."
+                f"{names} can't be on {why}. Make it single-use, "
+                f"or make a separate invite for {names}."
             )
 
     # Validate the library selection before creating anything. The invite picker
