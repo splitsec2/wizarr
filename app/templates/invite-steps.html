@@ -32,13 +32,17 @@
                   {% else %}
                     <span class="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 shrink-0"></span>
                   {% endif %}
-                  <span class="text-gray-900 dark:text-white font-medium truncate">{{ step.name }}</span>
+                  <span class="text-gray-900 dark:text-white font-medium break-words">{{ step.name }}</span>
                   {% if state == "done" %}
                     <span class="text-xs text-green-600 dark:text-green-400">{{ _("Done") }}</span>
                   {% elif state == "skipped" %}
                     <span class="text-xs text-gray-500 dark:text-gray-400">{{ _("Skipped") }}</span>
                   {% endif %}
                 </div>
+                {% if state == "done" and has_notes(step) %}
+                  <a href="{{ url_for('invite_steps.step_settings', code=invitation.code, key=step.key) }}"
+                     class="text-sm text-primary underline shrink-0">{{ _("Show settings") }}</a>
+                {% endif %}
                 {% if state != "done" %}
                   <div class="flex items-center gap-2 shrink-0">
                     <a href="{{ url_for('invite_steps.run_step', code=invitation.code, key=step.key) }}"

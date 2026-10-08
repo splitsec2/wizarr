@@ -132,7 +132,7 @@ def _states(invitation):
 def test_single_use_invite_for_two_services_uses_steps(plex_abs):
     invitation, plex, abs_server = plex_abs
     steps = invite_steps.steps_for(invitation)
-    assert [s.key for s in steps] == ["plex", str(abs_server.id)]
+    assert [s.key for s in steps] == ["plex", "account"]
     assert invite_steps.uses_steps(invitation)
 
 
@@ -198,8 +198,8 @@ def test_a_done_step_cannot_run_again(client, plex_abs, fake_plex):
 def test_next_step_is_prefilled_from_the_earlier_account(client, plex_abs, fake_plex):
     _invitation, _plex, abs_server = plex_abs
     client.post("/j/STEPS123/steps/plex", data={"token": "t"})
-    page = client.get(f"/j/STEPS123/steps/{abs_server.id}").get_data(as_text=True)
-    assert f'action="/j/STEPS123/steps/{abs_server.id}"' in page
+    page = client.get("/j/STEPS123/steps/account").get_data(as_text=True)
+    assert 'action="/j/STEPS123/steps/account"' in page
     assert 'value="plexsam"' in page
     assert 'value="sam@example.com"' in page
 
@@ -209,7 +209,7 @@ def test_form_step_creates_the_account_on_that_server_only(
 ):
     invitation, plex, abs_server = plex_abs
     resp = client.post(
-        f"/j/STEPS123/steps/{abs_server.id}",
+        "/j/STEPS123/steps/account",
         data={
             "code": "STEPS123",
             "username": "listener",
@@ -226,21 +226,21 @@ def test_form_step_creates_the_account_on_that_server_only(
 def test_form_step_errors_stay_on_the_step(client, plex_abs, fake_media):
     _invitation, _plex, abs_server = plex_abs
     resp = client.post(
-        f"/j/STEPS123/steps/{abs_server.id}",
+        "/j/STEPS123/steps/account",
         data={"code": "STEPS123", "username": "x"},
     )
     assert resp.status_code == 200
-    assert f'action="/j/STEPS123/steps/{abs_server.id}"' in resp.get_data(as_text=True)
+    assert 'action="/j/STEPS123/steps/account"' in resp.get_data(as_text=True)
     assert fake_media == {}
 
 
 def test_skip_then_set_up_later(client, plex_abs, fake_media):
     invitation, _plex, abs_server = plex_abs
-    client.post(f"/j/STEPS123/steps/{abs_server.id}/skip")
+    client.post("/j/STEPS123/steps/account/skip")
     assert _states(invitation) == {abs_server.id: "skipped"}
-    assert client.get(f"/j/STEPS123/steps/{abs_server.id}").status_code == 200
+    assert client.get("/j/STEPS123/steps/account").status_code == 200
     client.post(
-        f"/j/STEPS123/steps/{abs_server.id}",
+        "/j/STEPS123/steps/account",
         data={
             "code": "STEPS123",
             "username": "listener",
@@ -275,7 +275,7 @@ def test_finish_goes_to_the_wizard_only_when_nothing_is_left(
     early = client.post("/j/STEPS123/steps/finish")
     assert early.headers["Location"].endswith("/j/STEPS123/steps")
 
-    client.post(f"/j/STEPS123/steps/{abs_server.id}/skip")
+    client.post("/j/STEPS123/steps/account/skip")
     html = client.get("/j/STEPS123/steps").get_data(as_text=True)
     assert "You're all set." in html
     done = client.post("/j/STEPS123/steps/finish")
@@ -287,7 +287,7 @@ def test_finish_goes_to_the_wizard_only_when_nothing_is_left(
 def test_finished_invite_link_shows_the_ticks(client, plex_abs, fake_plex):
     invitation, _plex, abs_server = plex_abs
     client.post("/j/STEPS123/steps/plex", data={"token": "t"})
-    abs_step = invite_steps.find_step(invitation, str(abs_server.id))
+    abs_step = invite_steps.find_step(invitation, "account")
     assert abs_step is not None
     invite_steps.record(invitation, abs_step, "done")
     invitation.used = True
@@ -342,14 +342,14 @@ def test_prefill_is_only_for_the_browser_that_did_the_step(
     _invitation, _plex, abs_server = plex_abs
     client.post("/j/STEPS123/steps/plex", data={"token": "t"})
     stranger = app.test_client()
-    page = stranger.get(f"/j/STEPS123/steps/{abs_server.id}").get_data(as_text=True)
+    page = stranger.get("/j/STEPS123/steps/account").get_data(as_text=True)
     assert "sam@example.com" not in page
     assert "plexsam" not in page
 
 
 def test_step_pages_link_back_to_the_checklist(client, plex_abs):
     _invitation, _plex, abs_server = plex_abs
-    for key in ("plex", str(abs_server.id)):
+    for key in ("plex", "account"):
         page = client.get(f"/j/STEPS123/steps/{key}").get_data(as_text=True)
         assert 'href="/j/STEPS123/steps"' in page
         assert "Back to your checklist" in page
