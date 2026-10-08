@@ -2,6 +2,7 @@
 <section class="py-8 animate__animated animate__fadeIn">
   <div class="container px-4 mx-auto">
     <h1 class="text-2xl font-bold mb-6 text-gray-900 dark:text-white">{{ _("Administrators") }}</h1>
+    {% include "settings/_access_status.html" %}
     <div class="grid grid-cols-1 gap-4 animate__animated" id="admins_grid">
       {% for a in admins %}
         <div class="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-xs p-4 border border-gray-200 dark:border-gray-700"
