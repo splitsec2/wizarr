@@ -145,7 +145,7 @@ def delete_user_if_expired() -> list[int]:
             _record_expiry_event(user)  # Ensure it's saved before we delete the user
 
             # Delete the user (handles server-specific deletion internally)
-            delete_user(user.id, commit=False)
+            delete_user(user.id, commit=False, require_remote=True)
 
             deleted.append(user.id)
             logging.info(
@@ -243,7 +243,7 @@ def disable_or_delete_user_if_expired() -> list[int]:
                         disable_exc,
                     )
                     # Fallback to deletion using service function
-                    delete_user(user.id, commit=False)
+                    delete_user(user.id, commit=False, require_remote=True)
                     processed.append(user.id)
                     logging.info(
                         "🗑️ Expired user %s (%s) deleted (disable fallback)",
@@ -255,7 +255,7 @@ def disable_or_delete_user_if_expired() -> list[int]:
                     time.sleep(1)
             else:
                 # Delete the user (either by setting or server doesn't support disable)
-                delete_user(user.id, commit=False)
+                delete_user(user.id, commit=False, require_remote=True)
                 processed.append(user.id)
                 action_reason = (
                     "setting" if expiry_action == "delete" else "unsupported"
