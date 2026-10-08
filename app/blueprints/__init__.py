@@ -9,6 +9,7 @@ from .audiobookshelf.routes import abs_bp
 from .auth.routes import auth_bp
 from .connections.routes import connections_bp
 from .emby.routes import emby_bp
+from .invite_steps.routes import invite_steps_bp
 from .jellyfin.routes import jellyfin_bp
 from .kavita.routes import kavita_bp
 from .komga.routes import komga_bp
@@ -28,6 +29,7 @@ from .wizard_admin.routes import wizard_admin_bp
 
 all_blueprints = (
     public_bp,
+    invite_steps_bp,
     wizard_bp,
     admin_bp,
     activity_bp,

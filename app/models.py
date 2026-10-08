@@ -1158,6 +1158,45 @@ class ActivitySnapshot(db.Model):
 # ────────────────────────────────────────────────────────────────────────────
 
 
+class InvitationProgress(db.Model):
+    """Where one person is in an invite's setup steps, per server.
+
+    A single-use invite has one person, recorded as ``person=""``. Done means
+    the account on that server exists; skipped means they chose to finish it
+    later from the same link.
+    """
+
+    __tablename__ = "invitation_progress"
+    __table_args__ = (
+        db.UniqueConstraint(
+            "invitation_id", "server_id", "person", name="uq_invitation_progress"
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    invitation_id = db.Column(
+        db.Integer,
+        db.ForeignKey("invitation.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    server_id = db.Column(
+        db.Integer,
+        db.ForeignKey("media_server.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    person = db.Column(db.String, nullable=False, default="")
+    state = db.Column(db.String, nullable=False)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("user.id", ondelete="SET NULL"), nullable=True
+    )
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
 class LDAPConfiguration(db.Model):
     """LDAP server configuration for authentication and user management."""
 

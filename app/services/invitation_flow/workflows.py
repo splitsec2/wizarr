@@ -119,6 +119,17 @@ def _create_join_form_template_data(
     return context
 
 
+def enter_wizard(invitation: Invitation) -> str:
+    """Let this browser into the post-join wizard for *invitation*; its URL."""
+    session["wizard_access"] = invitation.code
+    bundle_id = getattr(invitation, "wizard_bundle_id", None)
+    if bundle_id:
+        session["wizard_bundle_id"] = bundle_id
+        return url_for("wizard.bundle_view", idx=0)
+    session.pop("wizard_bundle_id", None)
+    return "/wizard/"
+
+
 class InvitationWorkflow(ABC):
     """Base class for invitation workflows."""
 
@@ -277,12 +288,8 @@ class InvitationWorkflow(ABC):
     ) -> InvitationResult:
         """Create success result with wizard redirect."""
         invitation_code = invitation.code
-        session["wizard_access"] = invitation_code
+        redirect_url = enter_wizard(invitation)
         bundle_id = getattr(invitation, "wizard_bundle_id", None)
-        if bundle_id:
-            session["wizard_bundle_id"] = bundle_id
-        else:
-            session.pop("wizard_bundle_id", None)
 
         if not failed:
             status = ProcessingStatus.SUCCESS
@@ -290,10 +297,6 @@ class InvitationWorkflow(ABC):
         else:
             status = ProcessingStatus.PARTIAL_SUCCESS
             message = f"Accounts created on {len(successful)} of {len(successful) + len(failed)} servers"
-
-        redirect_url = "/wizard/"
-        if bundle_id:
-            redirect_url = url_for("wizard.bundle_view", idx=0)
 
         return InvitationResult(
             status=status,

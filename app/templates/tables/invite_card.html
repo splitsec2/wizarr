@@ -177,7 +177,14 @@
                     <div class="text-xs mt-0.5 space-y-1">
                       {% for srv in invite.servers %}
                         <div class="text-gray-700 dark:text-gray-300">
-                          <span class="font-medium">{{ srv.name }}</span>:
+                          <span class="font-medium">{{ srv.name }}</span>
+                          {% set step_state = (invite.step_states or {}).get(srv.id) %}
+                          {% if step_state == "done" %}
+                            <span class="text-green-600 dark:text-green-400">✓ {{ _("set up") }}</span>
+                          {% elif step_state == "skipped" %}
+                            <span class="text-gray-500 dark:text-gray-400">{{ _("skipped") }}</span>
+                          {% endif %}
+                          :
                           {% if invite.server_library_map.get(srv.id) %}
                             {{ invite.server_library_map[srv.id]|join(", ") }}
                           {% else %}
