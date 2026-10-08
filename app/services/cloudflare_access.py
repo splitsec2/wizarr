@@ -7,6 +7,11 @@ application's audience, issued by the team domain and not expired. A session
 cookie on its own grants nothing, so a request that reaches Wizarr without
 passing through Access is never treated as an admin.
 
+Access is an auth source like LDAP: the token's email signs in as the admin
+account linked to it (``auth_source`` ``cloudflare_access``, ``external_id``
+the email). An email no account is linked to is not an admin, and a session
+only counts while the request's token still maps to that same account.
+
 Validation follows Cloudflare's guidance: read the header rather than the
 ``CF_Authorization`` cookie, and pick the signing key by the token's ``kid``
 from ``https://<team>/cdn-cgi/access/certs``.
@@ -21,6 +26,7 @@ import jwt
 from flask import g, request
 
 JWT_HEADER = "Cf-Access-Jwt-Assertion"
+AUTH_SOURCE = "cloudflare_access"
 
 _clients: dict[str, jwt.PyJWKClient] = {}
 _clients_lock = threading.Lock()
@@ -95,3 +101,24 @@ def verified_claims() -> dict[str, Any] | None:
         claims = _verify(token, *config)
     request.environ[_CLAIMS_KEY] = claims
     return claims
+
+
+def verified_email() -> str | None:
+    """The valid token's email, lowercased. None for a service token, which
+    carries no email and so can't be matched to an admin."""
+    email = (verified_claims() or {}).get("email")
+    if not isinstance(email, str) or not email.strip():
+        return None
+    return email.strip().lower()
+
+
+def account_for_request():
+    """The admin account linked to this request's Access identity, or None."""
+    email = verified_email()
+    if email is None:
+        return None
+    from app.models import AdminAccount
+
+    return AdminAccount.query.filter_by(
+        auth_source=AUTH_SOURCE, external_id=email
+    ).first()
