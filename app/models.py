@@ -158,6 +158,18 @@ class Invitation(db.Model):
         """Get the total number of users who have used this invitation."""
         return len(list(self.users))  # type: ignore
 
+    def access_ends(self) -> dict[str, datetime]:
+        """Per-server access end times set on this invite, by server name."""
+        rows = db.session.execute(
+            db.select(MediaServer.name, invitation_servers.c.expires)
+            .join(MediaServer, MediaServer.id == invitation_servers.c.server_id)
+            .where(
+                invitation_servers.c.invite_id == self.id,
+                invitation_servers.c.expires.is_not(None),
+            )
+        ).all()
+        return dict(tuple(row) for row in rows)
+
     def get_first_user(self):
         """Get the first user who used this invitation (for backward compatibility)."""
         users_list = list(self.users)  # type: ignore
