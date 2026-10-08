@@ -1,0 +1,18 @@
+{# Name and Cloudflare Access email, shared by the create and edit admin modals. #}
+{% if form.access_email is defined %}
+  <div>
+    <label for="access_email"
+           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Cloudflare Access email") }}</label>
+    {{ form.access_email(class_="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white") }}
+    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      {{ _("The email this admin signs in to Cloudflare Access with. Your Access policy has to let them in too.") }}
+    </p>
+    {% for e in form.access_email.errors %}<p class="text-red-500 text-xs">{{ e }}</p>{% endfor %}
+  </div>
+{% endif %}
+<div>
+  <label for="display_name"
+         class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Name") }}</label>
+  {{ form.display_name(class_="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white", placeholder=_("How invites show this admin, e.g. Rob")) }}
+  {% for e in form.display_name.errors %}<p class="text-red-500 text-xs">{{ e }}</p>{% endfor %}
+</div>
