@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -16,7 +15,12 @@ from app.extensions import db
 from app.models import Invitation, User
 from app.services.invites import is_invite_valid
 
-from .client_base import ClientCapabilities, RestApiMixin, register_media_client
+from .client_base import (
+    EMAIL_RE,
+    ClientCapabilities,
+    RestApiMixin,
+    register_media_client,
+)
 
 """Romm media‐server client.
 
@@ -41,7 +45,6 @@ needs:
 # ---------------------------------------------------------------------------
 
 # Simple e-mail validation (same pattern as other clients)
-EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}$")
 
 
 @register_media_client("romm")
@@ -484,25 +487,13 @@ class RommClient(RestApiMixin):
             # (viewers can see everything).  We therefore don't attempt to
             # filter library access yet – we only need the DB linkage.
 
-            from app.services.expiry import calculate_user_expiry
-
-            expires = (
-                calculate_user_expiry(inv, getattr(self, "server_id", None))
-                if inv
-                else None
+            self._record_invited_user(
+                username=username,
+                email=email,
+                token=user_id,
+                code=code,
+                invitation=inv,
             )
-
-            self._create_user_with_identity_linking(
-                {
-                    "username": username,
-                    "email": email,
-                    "token": user_id,
-                    "code": code,
-                    "expires": expires,
-                    "server_id": getattr(self, "server_id", None),
-                }
-            )
-            db.session.commit()
 
             return True, ""
 

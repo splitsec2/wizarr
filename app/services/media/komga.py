@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -13,9 +12,12 @@ from app.extensions import db
 from app.models import Invitation, Library, User
 from app.services.invites import is_invite_valid
 
-from .client_base import ClientCapabilities, RestApiMixin, register_media_client
-
-EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}$")
+from .client_base import (
+    EMAIL_RE,
+    ClientCapabilities,
+    RestApiMixin,
+    register_media_client,
+)
 
 
 @register_media_client("komga")
@@ -460,21 +462,14 @@ class KomgaClient(RestApiMixin):
 
             self._set_library_access(user_id, library_ids)
 
-            from app.services.expiry import calculate_user_expiry
-
-            expires = calculate_user_expiry(inv, current_server_id) if inv else None
-
-            self._create_user_with_identity_linking(
-                {
-                    "username": username,
-                    "email": email,
-                    "token": user_id,
-                    "code": code,
-                    "expires": expires,
-                    "server_id": current_server_id,
-                }
+            self._record_invited_user(
+                username=username,
+                email=email,
+                token=user_id,
+                code=code,
+                invitation=inv,
+                server_id=current_server_id,
             )
-            db.session.commit()
 
             return True, ""
 
