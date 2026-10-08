@@ -453,3 +453,43 @@ def test_deleting_an_admin_keeps_their_invites(session):
 def test_shown_name_falls_back_to_username():
     assert AdminAccount(username="rob").shown_name == "rob"
     assert AdminAccount(username="rob", display_name="Rob").shown_name == "Rob"
+
+
+# ── Settings shows whether Access sign-in is on (read-only) ────────────────
+
+
+def test_status_card_when_on(client, session, access_mode, linked_admin):
+    local = AdminAccount(username="oldlocal")
+    db.session.add(local)
+    db.session.commit()
+    html = client.get("/settings/admins", headers=_signed_in(client)).get_data(
+        as_text=True
+    )
+    assert "Cloudflare Access sign-in" in html
+    assert ">On<" in html
+    assert f"Team: {TEAM}" in html
+    assert "You signed in as admin@example.com" in html
+    assert "Admins who can sign in: 1" in html
+    assert "who can't sign in: 1" in html
+
+
+def test_status_card_when_off(client, session, monkeypatch):
+    monkeypatch.delenv("CF_ACCESS_TEAM_DOMAIN", raising=False)
+    monkeypatch.delenv("CF_ACCESS_AUD", raising=False)
+    monkeypatch.setenv("DISABLE_BUILTIN_AUTH", "true")
+    client.post("/login")
+    html = client.get("/settings/admins", headers={"HX-Request": "true"}).get_data(
+        as_text=True
+    )
+    assert ">Off<" in html
+    assert "the admin pages trust anyone who can reach Wizarr" in html
+
+
+def test_status_card_has_no_control(client, session, access_mode, linked_admin):
+    html = client.get("/settings/admins", headers=_signed_in(client)).get_data(
+        as_text=True
+    )
+    card = html.split('id="access-status"', 1)[1].split("</div>\n", 1)[0]
+    assert "<form" not in card
+    assert "<input" not in card
+    assert "hx-post" not in card
