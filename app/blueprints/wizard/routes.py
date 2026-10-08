@@ -30,6 +30,7 @@ from app.models import (
 )
 from app.services.invite_code_manager import InviteCodeManager
 from app.services.ombi_client import run_all_importers
+from app.services.wizard_scope import invited_server
 
 wizard_bp = Blueprint("wizard", __name__, url_prefix="/wizard")
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent / "wizard_steps"
@@ -73,11 +74,9 @@ def restrict_wizard():
                 return redirect(url_for("public.root"))
 
     if not session.get("wizard_access"):
-        # Check if this is coming from an invitation process
-        # Allow access if they have recently used an invitation
-        if session.get("invitation_in_progress") or (
-            request.referrer and "/j/" in request.referrer
-        ):
+        # Allow access while an invitation is in progress in this session. The
+        # Referer header is not checked: any client can send one.
+        if session.get("invitation_in_progress"):
             return None
         return redirect("/")
     return None
@@ -89,17 +88,8 @@ def _get_server_context(server_type: str) -> dict[str, str | None]:
     # Find the server for this specific server type
     # Priority: 1) From invitation servers, 2) First server of this type
 
-    server = None
-
-    # 1️⃣ Check if we have an invitation with specific servers
-    inv_code = session.get("wizard_access")
-    if inv_code:
-        inv = Invitation.query.filter_by(code=inv_code).first()
-        if inv and inv.servers:
-            # Find the server of the requested type
-            server = next(
-                (s for s in inv.servers if s.server_type == server_type), None
-            )
+    # 1️⃣ The visitor's own server of this type (their invite's)
+    server = invited_server(server_type)
 
     # 2️⃣ Fallback to first server of this type
     if server is None:
