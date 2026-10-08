@@ -56,6 +56,23 @@
                       {{ _("Invited by %(who)s, %(when)s", who=invited[0], when=invited[1]|local_date("%b %-d, %Y")) }}
                     </p>
                   {% endif %}
+                  {% set setup = user.invite_setup() %}
+                  {% if setup %}
+                    <p class="text-xs text-muted-foreground dark:text-gray-400 truncate"
+                       data-invite-setup>
+                      {{ _("Set up:") }}
+                      {% for name, state in setup %}
+                        {% if state == "done" %}
+                          <span class="text-green-600 dark:text-green-400">{{ name }} ✓</span>
+                        {% elif state == "skipped" %}
+                          <span>{{ name }} ({{ _("skipped") }})</span>
+                        {% else %}
+                          <span>{{ name }} ({{ _("to do") }})</span>
+                        {% endif %}
+                        {% if not loop.last %}·{% endif %}
+                      {% endfor %}
+                    </p>
+                  {% endif %}
                 </div>
               </div>
               <!-- Status Badges -->
