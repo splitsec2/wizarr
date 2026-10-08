@@ -1,13 +1,59 @@
+import re
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_babel import _
 from flask_login import current_user, login_required
 
 from app.blueprints.admin.routes import admin_bp
 from app.extensions import db
-from app.forms.admin import AdminCreateForm, AdminUpdateForm
+from app.forms.admin import AccessAdminCreateForm, AdminCreateForm, AdminUpdateForm
+from app.forms.validators import USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH
 from app.models import AdminAccount, WebAuthnCredential
+from app.services import cloudflare_access
 
 admin_accounts_bp = Blueprint("admin_accounts", __name__, url_prefix="/settings/admins")
+
+
+def _link_access_email(acc: AdminAccount, email: str | None, field) -> bool:
+    """Link *acc* to a Cloudflare Access email, or unlink it when blank.
+
+    Returns False, with an error on *field*, when the email can't be used.
+    """
+    email = (email or "").strip().lower() or None
+    if email is None:
+        if acc.auth_source == cloudflare_access.AUTH_SOURCE:
+            acc.auth_source = "local"
+            acc.external_id = None
+        return True
+    if acc.external_id and acc.auth_source != cloudflare_access.AUTH_SOURCE:
+        field.errors = [*list(field.errors), _("This admin signs in through LDAP.")]
+        return False
+    other = AdminAccount.query.filter_by(
+        auth_source=cloudflare_access.AUTH_SOURCE, external_id=email
+    ).first()
+    if other is not None and other.id != acc.id:
+        field.errors = [
+            *list(field.errors),
+            _("Another admin already signs in with this email."),
+        ]
+        return False
+    acc.auth_source = cloudflare_access.AUTH_SOURCE
+    acc.external_id = email
+    return True
+
+
+def _username_from_email(email: str) -> str:
+    """A free username built from the email's local part."""
+    base = re.sub(r"[^\w'.-]", "-", email.split("@", 1)[0])
+    if len(base) < USERNAME_MIN_LENGTH:
+        base = f"{base}-admin"
+    base = base[:USERNAME_MAX_LENGTH]
+    name, n = base, 2
+    while AdminAccount.query.filter_by(username=name).first() is not None:
+        suffix = f"-{n}"
+        name = base[: USERNAME_MAX_LENGTH - len(suffix)] + suffix
+        n += 1
+    return name
 
 
 @admin_accounts_bp.route("", methods=["GET"])
@@ -24,6 +70,8 @@ def list_admins():
 @admin_accounts_bp.route("/create", methods=["GET", "POST"])
 @login_required
 def create_admin():
+    if cloudflare_access.enabled():
+        return _create_access_admin()
     form = AdminCreateForm()
     if form.validate_on_submit():
         if AdminAccount.query.filter_by(username=form.username.data).first():
@@ -34,6 +82,7 @@ def create_admin():
         else:
             acc = AdminAccount()
             acc.username = form.username.data
+            acc.display_name = form.display_name.data or None
             if form.password.data:
                 acc.set_password(form.password.data)
             db.session.add(acc)
@@ -41,9 +90,23 @@ def create_admin():
             flash(_("Admin created"), "success")
             return redirect(url_for("admin_accounts.list_admins"))
     # GET or POST-with-errors: render modal
-    if request.headers.get("HX-Request"):
-        return render_template("modals/create-admin.html", form=form)
     return render_template("modals/create-admin.html", form=form)
+
+
+def _create_access_admin():
+    """Under Cloudflare Access an admin is added by their Access email; they
+    sign in through Access, so the account has no password."""
+    form = AccessAdminCreateForm()
+    if form.validate_on_submit():
+        acc = AdminAccount()
+        if _link_access_email(acc, form.access_email.data, form.access_email):
+            acc.username = _username_from_email(acc.external_id)
+            acc.display_name = form.display_name.data or None
+            db.session.add(acc)
+            db.session.commit()
+            flash(_("Admin created"), "success")
+            return redirect(url_for("admin_accounts.list_admins"))
+    return render_template("modals/create-admin.html", form=form, access_mode=True)
 
 
 # ── Edit ───────────────────────────────────────────────────────────────
@@ -60,13 +123,16 @@ def edit_admin(admin_id):
                 *list(form.username.errors),
                 "Username already taken",
             ]
-        else:
+        elif _link_access_email(acc, form.access_email.data, form.access_email):
             acc.username = form.username.data
+            acc.display_name = form.display_name.data or None
             if form.password.data:
                 acc.set_password(form.password.data)
             db.session.commit()
             flash(_("Admin updated"), "success")
             return redirect(url_for("admin_accounts.list_admins"))
+        else:
+            db.session.rollback()
     if request.headers.get("HX-Request"):
         return render_template("modals/edit-admin.html", form=form, admin=acc)
     return render_template("modals/edit-admin.html", form=form, admin=acc)
