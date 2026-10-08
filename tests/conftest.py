@@ -106,6 +106,7 @@ def session(app):
         # Junction tables
         db.session.execute(db.text("DELETE FROM wizard_bundle_step"))
         db.session.execute(db.text("DELETE FROM wizard_bundle"))
+        db.session.execute(db.text("DELETE FROM invitation_progress"))
         db.session.execute(db.text("DELETE FROM invitation_server"))
         db.session.execute(db.text("DELETE FROM invitation_user"))
         # Main tables
@@ -135,6 +136,7 @@ def session(app):
         # Junction tables
         db.session.execute(db.text("DELETE FROM wizard_bundle_step"))
         db.session.execute(db.text("DELETE FROM wizard_bundle"))
+        db.session.execute(db.text("DELETE FROM invitation_progress"))
         db.session.execute(db.text("DELETE FROM invitation_server"))
         db.session.execute(db.text("DELETE FROM invitation_user"))
         # Main tables
