@@ -1,0 +1,15 @@
+{# Shared by the create and edit server modals. #}
+<div>
+  <label for="invitee_notes"
+         class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+    {{ _("After sign-up, tell them (optional)") }}
+  </label>
+  <textarea name="invitee_notes"
+            id="invitee_notes"
+            rows="3"
+            placeholder="{{ _('e.g. In KOReader, add the catalog https://books.example.com/opds') }}"
+            class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">{{ server.invitee_notes if server is defined and server.invitee_notes else '' }}</textarea>
+  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+    {{ _("Shown to the person once this server is set up, with its external URL.") }}
+  </p>
+</div>

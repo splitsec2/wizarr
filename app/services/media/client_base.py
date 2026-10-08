@@ -76,6 +76,12 @@ class ClientCapabilities:
     # The server can disable a user without deleting them. Expiry with the
     # "disable" action deletes instead when this is False.
     disable: bool = False
+    # How the invitee signs up: "form" (the fields above, on Wizarr's account
+    # form) or "plex" (Plex's own sign-in).
+    sign_in: str = "form"
+    # The password must pass the strong check (password_policy), for a server
+    # that stores it somewhere a weak one is easy to recover.
+    strong_password: bool = False
 
 
 DEFAULT_CAPABILITIES = ClientCapabilities()

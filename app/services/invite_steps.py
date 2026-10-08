@@ -1,14 +1,17 @@
-"""One invite link as a checklist of setup steps, one per service.
+"""One invite link as a checklist of setup steps.
 
-A single-use invite for more than one service opens a checklist instead of one
-combined sign-up. Plex is one step (one Plex sign-in covers every Plex server on
-the invite); every other server is its own step with its own form. Each step can
-be done or skipped, and progress is stored against the invitation, so the same
-link picks up where the person left off on any device.
+Each server's client declares how its invitee signs up (ClientCapabilities):
+servers that sign in with Plex are one step (one Plex sign-in covers them all),
+and every server that takes a form is one "Create your account" step, with one
+form for the fields they declare and ONE password for all of them, checked
+with the strong policy if any of them asks for it. Each step can be done or
+skipped, and progress is stored against the invitation, so the same link picks
+up where the person left off on any device.
 
-Unlimited invites keep the existing flows until people on them can be told apart
-(by a verified email), and so do invites that create an LDAP user, which the
-per-step forms would create once per step.
+A single-use invite opens the checklist when it has both kinds of step, or
+when a server needs the strong password check (only the account step runs it).
+Unlimited invites keep the existing flows until people on them can be told
+apart (by a verified email), and so do invites that create an LDAP user.
 """
 
 import datetime
@@ -19,10 +22,12 @@ from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Invitation, InvitationProgress, MediaServer, User
+from app.services.media.client_base import capabilities_for, join_fields_for
 
 DONE = "done"
 SKIPPED = "skipped"
 PLEX_STEP = "plex"
+ACCOUNT_STEP = "account"
 SINGLE_PERSON = ""
 
 
@@ -36,8 +41,26 @@ class Step:
         return self.key == PLEX_STEP
 
     @property
+    def is_account(self) -> bool:
+        return self.key == ACCOUNT_STEP
+
+    @property
     def name(self) -> str:
-        return " and ".join(s.name for s in self.servers)
+        names = [s.name for s in self.servers]
+        if len(names) <= 2:
+            return " and ".join(names)
+        return ", ".join(names[:-1]) + " and " + names[-1]
+
+    @property
+    def fields(self) -> list[str]:
+        """What the account form asks for: what these servers declare."""
+        return join_fields_for(s.server_type for s in self.servers)
+
+    @property
+    def strong_password(self) -> bool:
+        return any(
+            capabilities_for(s.server_type).strong_password for s in self.servers
+        )
 
 
 def find_invitation(code: str) -> Invitation | None:
@@ -46,10 +69,22 @@ def find_invitation(code: str) -> Invitation | None:
 
 def steps_for(invitation: Invitation) -> list[Step]:
     servers = cast("list[MediaServer]", invitation.servers or [])
-    plex = tuple(s for s in servers if s.server_type == "plex")
+    plex = tuple(
+        s for s in servers if capabilities_for(s.server_type).sign_in == "plex"
+    )
+    form = tuple(s for s in servers if s not in plex)
     steps = [Step(PLEX_STEP, plex)] if plex else []
-    steps += [Step(str(s.id), (s,)) for s in servers if s.server_type != "plex"]
+    if form:
+        steps.append(Step(ACCOUNT_STEP, form))
     return steps
+
+
+def joined(invitation: Invitation, server: MediaServer) -> bool:
+    """Whether this invite already made the account on *server*."""
+    return (
+        User.query.filter_by(code=invitation.code, server_id=server.id).first()
+        is not None
+    )
 
 
 def uses_steps(invitation: Invitation) -> bool:
@@ -60,7 +95,8 @@ def uses_steps(invitation: Invitation) -> bool:
 
     if InvitationLDAPHandler(invitation).should_create_ldap_user():
         return False
-    return len(steps_for(invitation)) >= 2
+    steps = steps_for(invitation)
+    return len(steps) >= 2 or any(step.strong_password for step in steps)
 
 
 def is_expired(invitation: Invitation) -> bool:

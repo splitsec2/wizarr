@@ -94,7 +94,7 @@ class PlexClient(MediaClient):
     """Wrapper that connects to Plex using admin credentials."""
 
     # Plex can only remove a share (removeFriend), so expiry always deletes.
-    capabilities = ClientCapabilities(disable=False)
+    capabilities = ClientCapabilities(disable=False, sign_in="plex")
 
     @classmethod
     def check_connection(cls, url: str, token: str) -> tuple[bool, str]:

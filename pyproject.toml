@@ -38,6 +38,7 @@ dependencies = [
     "webauthn>=3.0.0",
     "websocket-client>=1.9.2",
     "wtforms>=3.2.2",
+    "zxcvbn>=4.5,<5",
 ]
 
 [dependency-groups]

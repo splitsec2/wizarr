@@ -498,6 +498,8 @@ class MediaServer(db.Model):
     url = db.Column(db.String, nullable=False)
     api_key = db.Column(db.String, nullable=True)
     external_url = db.Column(db.String, nullable=True)  # Optional public address
+    # Shown to an invitee once this server is set up: which app, where to connect.
+    invitee_notes = db.Column(db.Text, nullable=True)
 
     # Universal media server toggles (work for all server types)
     allow_downloads = db.Column(db.Boolean, default=False, nullable=False)

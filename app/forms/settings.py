@@ -7,6 +7,7 @@ from wtforms import (
     PasswordField,
     SelectField,
     StringField,
+    TextAreaField,
 )
 from wtforms.validators import URL, DataRequired, Email, NumberRange, Optional
 
@@ -44,6 +45,9 @@ class SettingsForm(FlaskForm):
     ombi_api_key = StringField(str(_l("Ombi API Key")), validators=[Optional()])
     discord_id = StringField(str(_l("Discord ID")), validators=[Optional()])
     external_url = StringField(str(_l("External URL")), validators=[Optional()])
+    invitee_notes = TextAreaField(
+        str(_l("After sign-up, tell them")), validators=[Optional()]
+    )
 
     # Universal download and live TV options (no longer server-specific)
 
