@@ -283,6 +283,88 @@ def general_settings():
     return redirect(url_for("settings.page"))
 
 
+def _email_form(formdata=None):
+    """The email form filled from what's saved, and whether a password is saved."""
+    from app.forms.settings import EmailSettingsForm
+    from app.services import mailer
+
+    saved = _load_settings()
+    keys = mailer.KEYS
+    port = str(saved.get(keys["port"]) or "")
+    form = EmailSettingsForm(
+        formdata=formdata,
+        data={
+            "host": saved.get(keys["host"]) or "",
+            "port": int(port) if port.isdigit() else 587,
+            "security": saved.get(keys["security"]) or "starttls",
+            "username": saved.get(keys["username"]) or "",
+            "sender": saved.get(keys["sender"]) or "",
+        },
+    )
+    return form, bool(saved.get(keys["password"]))
+
+
+def _render_email(form, password_saved, test_form=None, test_result=None):
+    from app.forms.settings import EmailTestForm
+
+    return render_template(
+        "settings/email.html",
+        form=form,
+        password_saved=password_saved,
+        test_form=test_form or EmailTestForm(formdata=None),
+        test_result=test_result,
+    )
+
+
+@settings_bp.route("/email", methods=["GET", "POST"])
+@login_required
+def email_settings():
+    """Settings > Email: the SMTP server Wizarr sends mail through."""
+    from app.services import mailer
+    from app.services.ldap.encryption import encrypt_credential
+
+    form, password_saved = _email_form(
+        request.form if request.method == "POST" else None
+    )
+    if form.validate_on_submit():
+        keys = mailer.KEYS
+        values = {
+            keys["host"]: (form.host.data or "").strip(),
+            keys["port"]: str(form.port.data or ""),
+            keys["security"]: form.security.data,
+            keys["username"]: (form.username.data or "").strip(),
+            keys["sender"]: (form.sender.data or "").strip(),
+        }
+        # An empty password field keeps the saved one; it is never shown back.
+        if form.password.data:
+            values[keys["password"]] = encrypt_credential(form.password.data)
+            password_saved = True
+        _save_settings(values)
+        flash(_("Email settings saved."), "success")
+    return _render_email(form, password_saved)
+
+
+@settings_bp.route("/email/test", methods=["POST"])
+@login_required
+def email_test():
+    """Send a test message with the saved settings."""
+    from app.forms.settings import EmailTestForm
+    from app.services import mailer
+
+    test_form = EmailTestForm()
+    if test_form.validate_on_submit():
+        ok, reason = mailer.send(
+            test_form.test_to.data.strip(),
+            _("Wizarr test email"),
+            _("This is a test from Wizarr. Email is set up correctly."),
+        )
+    else:
+        ok, reason = False, _("Enter an address to send the test to.")
+    form, password_saved = _email_form()
+    message = _("Sent. Check that inbox.") if ok else reason
+    return _render_email(form, password_saved, test_form, (ok, message))
+
+
 @settings_bp.route("/clean-expired-users", methods=["POST"])
 @login_required
 def clean_expired_users():
