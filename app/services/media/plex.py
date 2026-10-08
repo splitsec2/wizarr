@@ -1317,8 +1317,6 @@ def handle_oauth_token(app, token: str, code: str) -> None:
 
         from flask import current_app
 
-        from app.services.expiry import calculate_user_expiry
-
         for server in servers:
             server_id = server.id
 
@@ -1327,20 +1325,15 @@ def handle_oauth_token(app, token: str, code: str) -> None:
             ).delete(synchronize_session=False)
             db.session.commit()
 
-            expires = calculate_user_expiry(inv, server_id) if inv else None
-
             client = PlexClient(media_server=server)
-            new_user = client._create_user_with_identity_linking(
-                {
-                    "token": token,
-                    "email": email,
-                    "username": account.username,
-                    "code": code,
-                    "expires": expires,
-                    "server_id": server_id,
-                }
+            new_user = client._record_invited_user(
+                username=account.username,
+                email=email,
+                token=token,
+                code=code,
+                invitation=inv,
+                server_id=server_id,
             )
-            db.session.commit()
 
             _invite_user(email, code, new_user.id, server)
 
