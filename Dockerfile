@@ -40,8 +40,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Build translations (include fuzzy entries so pending translations are bundled)
 RUN uv run --frozen --no-dev pybabel compile --use-fuzzy -d app/translations
 
-# Ensure static directories exist and build static assets
-RUN mkdir -p app/static/js app/static/css && DOCKER_BUILD=true npm --prefix app/static/ run build
+# Ensure static directories exist and build static assets. copy-assets.js
+# copies every vendor file the templates load out of node_modules (and fails
+# the build if one is missing), so node_modules is only needed for the build:
+# drop it here so the runtime image's app/ layer doesn't carry it.
+RUN mkdir -p app/static/js app/static/css \
+    && DOCKER_BUILD=true npm --prefix app/static/ run build \
+    && test -s app/static/css/main.css \
+    && rm -rf app/static/node_modules
 
 # ─── Stage 3: Runtime ─────────────────────────────────────────────────────
 FROM ghcr.io/astral-sh/uv:python3.13-alpine
