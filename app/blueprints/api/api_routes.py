@@ -21,6 +21,7 @@ from app.models import (
     User,
     WebAuthnCredential,
 )
+from app.services.acting_admin import remember_api_key
 from app.services.invites import create_invite
 from app.services.media.service import (
     delete_user,
@@ -102,6 +103,7 @@ def require_api_key(f):
         # Update last used timestamp
         api_key.last_used_at = datetime.datetime.now(datetime.UTC)
         db.session.commit()
+        remember_api_key(api_key)
 
         logger.info(
             "API request authenticated with key '%s' from %s",
@@ -150,6 +152,7 @@ def require_api_key_or_session(f):
         # Update last used timestamp
         api_key.last_used_at = datetime.datetime.now(datetime.UTC)
         db.session.commit()
+        remember_api_key(api_key)
 
         logger.info(
             "API request authenticated with key '%s' from %s",
