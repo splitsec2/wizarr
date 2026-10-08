@@ -13,7 +13,7 @@ from app.extensions import db
 from app.models import Invitation, Library, User
 from app.services.invites import is_invite_valid
 
-from .client_base import RestApiMixin, register_media_client
+from .client_base import ClientCapabilities, RestApiMixin, register_media_client
 from .utils import StandardizedPermissions
 
 if TYPE_CHECKING:
@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 @register_media_client("audiobookshelf")
 class AudiobookshelfClient(RestApiMixin):
     """Very small wrapper around the Audiobookshelf REST API."""
+
+    capabilities = ClientCapabilities(disable=True)
 
     @classmethod
     def check_connection(cls, url: str, token: str) -> tuple[bool, str]:

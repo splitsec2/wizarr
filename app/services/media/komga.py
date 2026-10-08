@@ -13,7 +13,7 @@ from app.extensions import db
 from app.models import Invitation, Library, User
 from app.services.invites import is_invite_valid
 
-from .client_base import RestApiMixin, register_media_client
+from .client_base import ClientCapabilities, RestApiMixin, register_media_client
 
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}$")
 
@@ -21,6 +21,9 @@ EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}$")
 @register_media_client("komga")
 class KomgaClient(RestApiMixin):
     """Wrapper around the Komga REST API using credentials from Settings."""
+
+    # Disable removes all library access; there is no account switch.
+    capabilities = ClientCapabilities(disable=True)
 
     @classmethod
     def check_connection(cls, url: str, token: str) -> tuple[bool, str]:
