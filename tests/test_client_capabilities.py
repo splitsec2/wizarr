@@ -58,12 +58,24 @@ class EmailOnlyClient(MediaClient):
     capabilities = ClientCapabilities(join_fields=("email",))
     joined: ClassVar[list[tuple[str, str]]] = []
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, media_server=None, **kwargs):
         self.url = "http://email-only.local"
         self.token = "token"
+        if media_server is not None:
+            self.server_id = media_server.id
 
     def _do_join(self, username, password, confirm, email, code):
         EmailOnlyClient.joined.append((email, code))
+        self._create_user_with_identity_linking(
+            {
+                "username": email,
+                "email": email,
+                "token": email,
+                "code": code,
+                "server_id": self.server_id,
+            }
+        )
+        db.session.commit()
         return True, ""
 
     def libraries(self):
@@ -158,7 +170,7 @@ def _invite(server_type, code):
     return server
 
 
-def test_email_only_invite_page_and_submission(client, session, email_only):
+def test_email_only_invite_page_and_submission(client, session, email_only, caplog):
     _invite("email_only", "EMAILONLY1")
 
     body = client.get("/j/EMAILONLY1").get_data(as_text=True)
@@ -171,6 +183,10 @@ def test_email_only_invite_page_and_submission(client, session, email_only):
         data={"code": "EMAILONLY1", "email": "reader@example.com"},
     )
     assert email_only.joined == [("reader@example.com", "EMAILONLY1")]
+    assert "User lookup failed" not in caplog.text
+    invitation = Invitation.query.filter_by(code="EMAILONLY1").one()
+    assert invitation.used_by is not None
+    assert invitation.used_by.email == "reader@example.com"
 
 
 def test_full_form_servers_still_show_every_field(client, session):
@@ -179,3 +195,29 @@ def test_full_form_servers_still_show_every_field(client, session):
     body = client.get("/j/JELLYFORM1").get_data(as_text=True)
     for field in ("username", "email", "password", "confirm_password"):
         assert f'name="{field}"' in body
+
+
+def test_find_joined_user_tells_people_on_one_invite_apart(session):
+    from app.models import User
+    from app.services.invites import find_joined_user
+
+    server = MediaServer(name="S", server_type="jellyfin", url="http://s", api_key="k")
+    db.session.add(server)
+    db.session.commit()
+    for name in ("first", "second"):
+        db.session.add(
+            User(
+                username=name,
+                email=f"{name}@example.com",
+                token=name,
+                code="SHAREDINV1",
+                server_id=server.id,
+            )
+        )
+    db.session.commit()
+
+    by_email = find_joined_user("SHAREDINV1", server.id, email="first@example.com")
+    by_name = find_joined_user("SHAREDINV1", server.id, username="second")
+    assert by_email is not None and by_email.username == "first"
+    assert by_name is not None and by_name.username == "second"
+    assert find_joined_user("SHAREDINV1", server.id, email="nobody@example.com") is None
