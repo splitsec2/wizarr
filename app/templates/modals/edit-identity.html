@@ -9,7 +9,7 @@
         <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4 dark:bg-gray-800">
           <div class="flex justify-between items-center pb-3">
             <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
-              {{ _("Edit Identity") }}
+              {{ _("Name") }}
             </h1>
             <button onclick="document.getElementById('modal').classList.add('hidden')"
                     type="button"
@@ -30,13 +30,13 @@
                 class="space-y-4 md:space-y-6">
             <div>
               <label for="nickname"
-                     class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Nickname") }}</label>
+                     class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Name") }}</label>
               <input type="text"
                      id="nickname"
                      name="nickname"
                      value="{{ identity.nickname or '' }}"
                      class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                     placeholder="Enter nickname">
+                     placeholder="{{ _('Their name') }}">
             </div>
             <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 dark:bg-gray-800">
               <button type="submit"
