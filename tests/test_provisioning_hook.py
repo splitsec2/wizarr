@@ -26,6 +26,7 @@ class FakeHook:
     def __init__(self, prefix="X-Wizarr-"):
         self.prefix = prefix
         self.calls = []
+        self.passwords = []
         self.replies = {}
 
     def post(self, url, data, headers, timeout):
@@ -38,6 +39,8 @@ class FakeHook:
         assert hmac.compare_digest(headers[f"{self.prefix}Signature"], expected)
         body = json.loads(data)
         self.calls.append((body["verb"], body["email"]))
+        if "password" in body:
+            self.passwords.append(body["password"])
         status, reply = self.replies.get(body["verb"], (200, {"ok": True}))
         return SimpleNamespace(
             ok=200 <= status < 300,
@@ -200,28 +203,42 @@ def test_connection_check(hook, status, token, expected):
     assert ok is expected
 
 
-def test_invite_page_asks_only_for_an_email(client, session, hook):
-    server = _server()
-    _invite(server)
+def _single_use_invite(server, code="BOOKS0001"):
+    invitation = Invitation(code=code, used=False, duration="30")
+    invitation.servers.append(server)
+    db.session.add(invitation)
+    db.session.commit()
+    return invitation
 
-    body = client.get("/j/BOOKS0001").get_data(as_text=True)
+
+def test_invite_asks_for_an_email_and_one_strong_password(client, session, hook):
+    server = _server()
+    _single_use_invite(server)
+
+    assert client.get("/j/BOOKS0001").headers["Location"].endswith("/j/BOOKS0001/steps")
+    body = client.get("/j/BOOKS0001/steps/account").get_data(as_text=True)
 
     assert 'name="email"' in body
+    assert 'name="password"' in body
     assert 'name="username"' not in body
-    assert 'name="password"' not in body
+    assert "A short sentence works well." in body
 
 
-def test_invite_submission_with_only_an_email_grants(client, session, hook):
+def test_invite_submission_grants_with_the_chosen_password(client, session, hook):
     server = _server()
-    _invite(server)
-    client.get("/j/BOOKS0001")
+    _single_use_invite(server)
 
     client.post(
-        "/invitation/process",
-        data={"code": "BOOKS0001", "email": "reader@example.com"},
+        "/j/BOOKS0001/steps/account",
+        data={
+            "email": "reader@example.com",
+            "password": "Robisagreatguyontuesdays",
+            "confirm_password": "Robisagreatguyontuesdays",
+        },
     )
 
     assert hook.calls == [("grant", "reader@example.com")]
+    assert hook.passwords == ["Robisagreatguyontuesdays"]
     assert User.query.filter_by(server_id=server.id).count() == 1
 
 
