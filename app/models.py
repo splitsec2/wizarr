@@ -254,7 +254,12 @@ class User(db.Model, UserMixin):
         invitation = invite_steps.find_invitation(self.code)
         if invitation is None or not invite_steps.uses_steps(invitation):
             return []
-        states = invite_steps.server_states(invitation)
+        person = (
+            (self.email or "").strip().lower()
+            if invite_steps.multi_use(invitation)
+            else invite_steps.SINGLE_PERSON
+        )
+        states = invite_steps.server_states(invitation, person)
         return [
             (step.name, invite_steps.state_of(step, states) or "todo")
             for step in invite_steps.steps_for(invitation)
@@ -1174,6 +1179,31 @@ class ActivitySnapshot(db.Model):
 # ────────────────────────────────────────────────────────────────────────────
 # LDAP/OIDC Integration Models (2025-12)
 # ────────────────────────────────────────────────────────────────────────────
+
+
+class EmailCode(db.Model):
+    """A sign-in code emailed to someone joining with an invite.
+
+    Only a keyed hash of the code is stored. It expires, allows a few
+    attempts, and is deleted once used.
+    """
+
+    __tablename__ = "email_code"
+
+    id = db.Column(db.Integer, primary_key=True)
+    invitation_id = db.Column(
+        db.Integer,
+        db.ForeignKey("invitation.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    email = db.Column(db.String, nullable=False)
+    code_hash = db.Column(db.String, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
 
 
 class InvitationProgress(db.Model):

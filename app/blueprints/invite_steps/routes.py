@@ -26,7 +26,7 @@ from app.forms.validators import (
     USERNAME_MIN_LENGTH,
     USERNAME_PATTERN,
 )
-from app.services import invite_steps, password_policy
+from app.services import email_codes, invite_steps, password_policy
 from app.services.invitation_flow.workflows import (
     PlexOAuthWorkflow,
     enter_wizard,
@@ -40,6 +40,10 @@ invite_steps_bp = Blueprint("invite_steps", __name__)
 # Set in the browser that finished a step, so only that browser sees the earlier
 # account's username and email prefilled (the link alone shouldn't show them).
 _DID_A_STEP = "invite_steps_code"
+# {invite code: email} this browser proved with an emailed code, and the address
+# a code was last sent to.
+_VERIFIED = "invite_steps_verified"
+_PENDING = "invite_steps_pending_email"
 
 
 def _invalid():
@@ -61,6 +65,32 @@ def _load(code: str):
     return invitation
 
 
+def _verified_email(invitation) -> str | None:
+    return (session.get(_VERIFIED) or {}).get(invitation.code.lower())
+
+
+def _person(invitation) -> str:
+    """Whose progress this is: the verified email on a shared invite."""
+    if invite_steps.multi_use(invitation):
+        return _verified_email(invitation) or ""
+    return invite_steps.SINGLE_PERSON
+
+
+def _gate(invitation, next_url: str):
+    """Send the browser to confirm an email first, then on to *next_url*."""
+    return redirect(
+        url_for("invite_steps.email_gate", code=invitation.code, next=next_url)
+    )
+
+
+def _safe_next(invitation, value: str | None) -> str:
+    """Only ever continue to a page of this invite's checklist."""
+    base = _checklist_url(invitation)
+    if value and (value == base or value.startswith(base + "/")):
+        return value
+    return base
+
+
 def _open_step(code: str, key: str):
     """The invite and step, or None when the step is unknown or already done."""
     invitation = _load(code)
@@ -69,14 +99,14 @@ def _open_step(code: str, key: str):
     step = invite_steps.find_step(invitation, key)
     if step is None:
         return invitation, None
-    states = invite_steps.server_states(invitation)
+    states = invite_steps.server_states(invitation, _person(invitation))
     if invite_steps.state_of(step, states) == invite_steps.DONE:
         return invitation, None
     return invitation, step
 
 
 def _mark_done(invitation, step) -> None:
-    invite_steps.record(invitation, step, invite_steps.DONE)
+    invite_steps.record(invitation, step, invite_steps.DONE, person=_person(invitation))
     session[_DID_A_STEP] = invitation.code
 
 
@@ -92,7 +122,9 @@ def checklist(code):
     if invitation is None:
         return _invalid()
     InviteCodeManager.store_invite_code(invitation.code)
-    states = invite_steps.server_states(invitation)
+    if invite_steps.multi_use(invitation) and not _verified_email(invitation):
+        return _gate(invitation, _checklist_url(invitation))
+    states = invite_steps.server_states(invitation, _person(invitation))
     steps = [
         (step, invite_steps.state_of(step, states))
         for step in invite_steps.steps_for(invitation)
@@ -117,8 +149,14 @@ def run_step(code, key):
         return _invalid()
     if step is None:
         return redirect(_checklist_url(invitation))
+    here = url_for("invite_steps.run_step", code=invitation.code, key=step.key)
+    if invite_steps.multi_use(invitation) and not _verified_email(invitation):
+        return _gate(invitation, here)
     if step.is_plex:
         return _plex_step(invitation, step)
+    # Any email Wizarr acts on is proven first (Plex proves its own sign-in).
+    if "email" in step.fields and not _verified_email(invitation):
+        return _gate(invitation, here)
     return _account_step(invitation, step)
 
 
@@ -203,22 +241,21 @@ def _account_step(invitation, step):
             back_url=_checklist_url(invitation),
         )
 
+    person = _person(invitation)
+    verified = _verified_email(invitation) or ""
     if request.method == "GET":
         earlier = (
-            invite_steps.earlier_account(invitation)
+            invite_steps.earlier_account(invitation, person)
             if session.get(_DID_A_STEP) == invitation.code
             else None
         )
-        prefill = (
-            {"username": earlier.username or "", "email": earlier.email or ""}
-            if earlier
-            else {}
-        )
+        prefill = {"username": earlier.username or ""} if earlier else {}
+        prefill["email"] = verified
         return form(values=prefill)
 
-    values = {
-        name: (request.form.get(name) or "").strip() for name in ("username", "email")
-    }
+    values = {"username": (request.form.get("username") or "").strip()}
+    # The address is the one proven with a code, whatever the form says.
+    values["email"] = verified
     values["password"] = request.form.get("password") or ""
     values["confirm_password"] = request.form.get("confirm_password") or ""
     problem = _account_problem(step, values, invitation)
@@ -226,8 +263,10 @@ def _account_step(invitation, step):
         return form(problem, values)
 
     # A retry after a partial failure only makes what is still missing.
-    pending = [s for s in step.servers if not invite_steps.joined(invitation, s)]
-    _ok, failed = join_servers(
+    pending = [
+        s for s in step.servers if not invite_steps.joined(invitation, s, person)
+    ]
+    succeeded, failed = join_servers(
         pending,
         {
             "username": values["username"] or values["email"],
@@ -238,6 +277,10 @@ def _account_step(invitation, step):
         },
         invitation.code,
     )
+    for result in succeeded:
+        invite_steps.record_server(
+            invitation, result.server, invite_steps.DONE, person=person
+        )
     if failed:
         names = " and ".join(result.server.name for result in failed)
         return form(
@@ -270,7 +313,7 @@ def step_settings(code, key):
     if invitation is None:
         return _invalid()
     step = invite_steps.find_step(invitation, key)
-    states = invite_steps.server_states(invitation)
+    states = invite_steps.server_states(invitation, _person(invitation))
     if (
         step is None
         or invite_steps.state_of(step, states) != invite_steps.DONE
@@ -287,7 +330,9 @@ def skip_step(code, key):
     if invitation is None:
         return _invalid()
     if step is not None:
-        invite_steps.record(invitation, step, invite_steps.SKIPPED)
+        invite_steps.record(
+            invitation, step, invite_steps.SKIPPED, person=_person(invitation)
+        )
     return redirect(_checklist_url(invitation))
 
 
@@ -297,6 +342,76 @@ def finish(code):
     invitation = _load(code)
     if invitation is None:
         return _invalid()
-    if invite_steps.pending(invitation):
+    if invite_steps.pending(invitation, _person(invitation)):
         return redirect(_checklist_url(invitation))
     return redirect(enter_wizard(invitation))
+
+
+# ── Proving an email with a code ────────────────────────────────────────────
+
+
+@invite_steps_bp.route("/j/<code>/steps/email", methods=["GET", "POST"])
+@limiter.limit("10 per minute", methods=["POST"])
+def email_gate(code):
+    invitation = _load(code)
+    if invitation is None:
+        return _invalid()
+    next_url = _safe_next(invitation, request.values.get("next"))
+    if request.method == "GET":
+        return render_template(
+            "invite-step-email.html",
+            invitation=invitation,
+            next_url=next_url,
+            email=session.get(_PENDING, ""),
+            error=None,
+        )
+    email = email_codes.normalise(request.form.get("email") or "")
+    if not EMAIL_RE.fullmatch(email):
+        return render_template(
+            "invite-step-email.html",
+            invitation=invitation,
+            next_url=next_url,
+            email=email,
+            error=_("Enter a valid email address."),
+        )
+    sent, reason = email_codes.send_code(invitation, email)
+    if not sent:
+        return render_template(
+            "invite-step-email.html",
+            invitation=invitation,
+            next_url=next_url,
+            email=email,
+            error=reason,
+        )
+    session[_PENDING] = email
+    return redirect(
+        url_for("invite_steps.verify_code", code=invitation.code, next=next_url)
+    )
+
+
+@invite_steps_bp.route("/j/<code>/steps/verify", methods=["GET", "POST"])
+@limiter.limit("10 per minute", methods=["POST"])
+def verify_code(code):
+    invitation = _load(code)
+    if invitation is None:
+        return _invalid()
+    next_url = _safe_next(invitation, request.values.get("next"))
+    email = session.get(_PENDING)
+    if not email:
+        return _gate(invitation, next_url)
+    error = None
+    if request.method == "POST":
+        if email_codes.check_code(invitation, email, request.form.get("code") or ""):
+            verified = dict(session.get(_VERIFIED) or {})
+            verified[invitation.code.lower()] = email
+            session[_VERIFIED] = verified
+            session.pop(_PENDING, None)
+            return redirect(next_url)
+        error = _("That code isn't right or has expired.")
+    return render_template(
+        "invite-step-verify.html",
+        invitation=invitation,
+        next_url=next_url,
+        email=email,
+        error=error,
+    )

@@ -9,9 +9,11 @@ skipped, and progress is stored against the invitation, so the same link picks
 up where the person left off on any device.
 
 A single-use invite opens the checklist when it has both kinds of step, or
-when a server needs the strong password check (only the account step runs it).
-Unlimited invites keep the existing flows until people on them can be told
-apart (by a verified email), and so do invites that create an LDAP user.
+when a server needs the strong password check (only the account step runs it);
+its progress belongs to the invite. A shared (unlimited) invite opens it once
+Settings > Email is set up: each person proves their email with a code and
+their progress is kept under that address. Any email the account step uses is
+proven the same way. Invites that create an LDAP user keep the old flow.
 """
 
 import datetime
@@ -79,23 +81,24 @@ def steps_for(invitation: Invitation) -> list[Step]:
     return steps
 
 
-def joined(invitation: Invitation, server: MediaServer) -> bool:
-    """Whether this invite already made the account on *server*."""
-    return (
-        User.query.filter_by(code=invitation.code, server_id=server.id).first()
-        is not None
-    )
+def multi_use(invitation: Invitation) -> bool:
+    """Whether several people share this invite, so each proves their email."""
+    return bool(invitation.unlimited)
 
 
 def uses_steps(invitation: Invitation) -> bool:
     """Whether this invite opens the checklist rather than a combined sign-up."""
-    if invitation.unlimited:
-        return False
+    from app.services import mailer
     from app.services.ldap.invitation_ldap import InvitationLDAPHandler
 
+    # People on a shared invite are told apart by an emailed code.
+    if multi_use(invitation) and not mailer.is_configured():
+        return False
     if InvitationLDAPHandler(invitation).should_create_ldap_user():
         return False
     steps = steps_for(invitation)
+    if multi_use(invitation):
+        return bool(steps)
     return len(steps) >= 2 or any(step.strong_password for step in steps)
 
 
@@ -104,6 +107,17 @@ def is_expired(invitation: Invitation) -> bool:
         return False
     expires = invitation.expires.replace(tzinfo=datetime.UTC)
     return expires <= datetime.datetime.now(datetime.UTC)
+
+
+def people(invitation: Invitation) -> dict[str, dict[int, str]]:
+    """Each person's progress on a shared invite: {email: {server id: state}}."""
+    found: dict[str, dict[int, str]] = {}
+    for row in InvitationProgress.query.filter(
+        InvitationProgress.invitation_id == invitation.id,
+        InvitationProgress.person != SINGLE_PERSON,
+    ):
+        found.setdefault(row.person, {})[row.server_id] = row.state
+    return found
 
 
 def server_states(
@@ -116,7 +130,21 @@ def server_states(
 
 
 def state_of(step: Step, states: dict[int, str]) -> str | None:
-    return states.get(step.servers[0].id)
+    """Done when every server on the step is done; skipped when the rest of
+    it was skipped; otherwise still to do."""
+    found = [states.get(s.id) for s in step.servers]
+    if all(state == DONE for state in found):
+        return DONE
+    if None not in found:
+        return SKIPPED
+    return None
+
+
+def joined(
+    invitation: Invitation, server: MediaServer, person: str = SINGLE_PERSON
+) -> bool:
+    """Whether this person already has their account on *server* from the invite."""
+    return server_states(invitation, person).get(server.id) == DONE
 
 
 def find_step(invitation: Invitation, key: str) -> Step | None:
@@ -128,6 +156,38 @@ def pending(invitation: Invitation, person: str = SINGLE_PERSON) -> list[Step]:
     return [s for s in steps_for(invitation) if state_of(s, states) is None]
 
 
+def _account_on(invitation: Invitation, server: MediaServer, person: str):
+    query = User.query.filter_by(code=invitation.code, server_id=server.id)
+    if person:
+        query = query.filter(func.lower(User.email) == person)
+    return query.order_by(User.id.desc()).first()
+
+
+def record_server(
+    invitation: Invitation,
+    server: MediaServer,
+    state: str,
+    *,
+    person: str = SINGLE_PERSON,
+) -> None:
+    """Mark one server done or skipped for this person. Done is final."""
+    row = InvitationProgress.query.filter_by(
+        invitation_id=invitation.id, server_id=server.id, person=person
+    ).first()
+    if row is None:
+        row = InvitationProgress(
+            invitation_id=invitation.id, server_id=server.id, person=person
+        )
+        db.session.add(row)
+    elif row.state == DONE:
+        return
+    row.state = state
+    if state == DONE:
+        user = _account_on(invitation, server, person)
+        row.user_id = user.id if user else None
+    db.session.commit()
+
+
 def record(
     invitation: Invitation,
     step: Step,
@@ -135,29 +195,14 @@ def record(
     *,
     person: str = SINGLE_PERSON,
 ) -> None:
-    """Mark *step* done or skipped. Done is final; a skipped step can be done later."""
+    """Mark every server on *step*; a skipped step can be done later."""
     for server in step.servers:
-        row = InvitationProgress.query.filter_by(
-            invitation_id=invitation.id, server_id=server.id, person=person
-        ).first()
-        if row is None:
-            row = InvitationProgress(
-                invitation_id=invitation.id, server_id=server.id, person=person
-            )
-            db.session.add(row)
-        elif row.state == DONE:
-            continue
-        row.state = state
-        if state == DONE:
-            user = (
-                User.query.filter_by(code=invitation.code, server_id=server.id)
-                .order_by(User.id.desc())
-                .first()
-            )
-            row.user_id = user.id if user else None
-    db.session.commit()
+        record_server(invitation, server, state, person=person)
 
 
-def earlier_account(invitation: Invitation) -> User | None:
+def earlier_account(invitation: Invitation, person: str = SINGLE_PERSON) -> User | None:
     """An account this person already made from the invite, to prefill the next form."""
-    return User.query.filter_by(code=invitation.code).order_by(User.id.asc()).first()
+    query = User.query.filter_by(code=invitation.code)
+    if person:
+        query = query.filter(func.lower(User.email) == person)
+    return query.order_by(User.id.asc()).first()
