@@ -80,6 +80,10 @@ def _parse_end_date(value: Any) -> datetime.date | None:
     return day
 
 
+# Server types the Plex password step can create accounts on.
+PLEX_COMPANION_TYPES = frozenset({"jellyfin", "emby", "audiobookshelf", "romm"})
+
+
 def create_invite(form: Any) -> Invitation:
     """Takes a WTForms or dict-like `form` with the same keys as your old version."""
     # generate or validate provided code
@@ -113,6 +117,20 @@ def create_invite(form: Any) -> Invitation:
     plex_servers = [s for s in servers if s.server_type == "plex"]
     other_servers = [s for s in servers if s.server_type != "plex"]
     servers = plex_servers + other_servers
+
+    # Fork: after Plex sign-in, the other servers are set up by the password
+    # step, which only handles these types and silently skips the rest. Refuse
+    # the invite rather than send someone a link that can't give them access.
+    if plex_servers:
+        unhandled = [
+            s.name for s in other_servers if s.server_type not in PLEX_COMPANION_TYPES
+        ]
+        if unhandled:
+            names = " and ".join(unhandled)
+            raise ValueError(
+                f"Plex can't share an invite with {names} yet. "
+                f"Make a separate invite for {names}."
+            )
 
     # Validate the library selection before creating anything. The invite picker
     # (server_library_picker.html) emits a hidden `library_picker_used` marker; if
