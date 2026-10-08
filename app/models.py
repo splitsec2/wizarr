@@ -101,6 +101,11 @@ class Invitation(db.Model):
     expires = db.Column(db.DateTime, nullable=True)
     unlimited = db.Column(db.Boolean, nullable=True)
     duration = db.Column(db.String, nullable=True)
+    # Who the invite is for; joined accounts are named after it. Not used on
+    # unlimited invites, which are shared by several people.
+    invitee_name = db.Column(db.String, nullable=True)
+    # The admin who created the invite (Cloudflare Access email, or username).
+    created_by = db.Column(db.String, nullable=True)
     specific_libraries = db.Column(db.String, nullable=True)
     plex_allow_sync = db.Column(db.Boolean, default=False, nullable=True)
     plex_home = db.Column(db.Boolean, default=False, nullable=True)
@@ -233,6 +238,15 @@ class User(db.Model, UserMixin):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    def invited_by(self) -> tuple[str, datetime] | None:
+        """Who created the invite this account joined with, and when."""
+        if not self.code:
+            return None
+        invite = Invitation.query.filter_by(code=self.code).first()
+        if invite is None or not invite.created_by:
+            return None
+        return invite.created_by, invite.created
 
     def get_library_access(self):
         """Get deserialized library access data."""

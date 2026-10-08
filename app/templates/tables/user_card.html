@@ -38,7 +38,7 @@
                             hx-target="#modal-user"
                             hx-swap="innerHTML"
                             onclick="event.stopPropagation()"
-                            title="{{ _('Edit nickname') }}"
+                            title="{{ _('Edit name') }}"
                             class="ml-2 inline-flex items-center justify-center w-6 h-6 text-muted-foreground hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:text-primary dark:hover:bg-gray-700 rounded transition-colors">
                       <svg class="w-4 h-4"
                            fill="currentColor"
@@ -50,6 +50,12 @@
                     </button>
                   </div>
                   <p class="text-sm text-muted-foreground dark:text-gray-400 truncate">{{ user.email or _("Home User") }}</p>
+                  {% set invited = user.invited_by() %}
+                  {% if invited %}
+                    <p class="text-xs text-muted-foreground dark:text-gray-400 truncate">
+                      {{ _("Invited by %(who)s, %(when)s", who=invited[0], when=invited[1]|local_date("%b %-d, %Y")) }}
+                    </p>
+                  {% endif %}
                 </div>
               </div>
               <!-- Status Badges -->
