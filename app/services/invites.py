@@ -4,8 +4,6 @@ import secrets
 import string
 from typing import Any, cast
 
-from flask import has_request_context
-from flask_login import current_user
 from sqlalchemy import and_, or_  # type: ignore
 
 from app.extensions import db
@@ -17,6 +15,7 @@ from app.models import (
     invitation_servers,
     invitation_users,
 )
+from app.services.acting_admin import acting_admin
 
 MIN_CODESIZE = 6  # Minimum allowed invite code length
 MAX_CODESIZE = 10  # Maximum allowed invite code length (default for generated codes)
@@ -87,26 +86,6 @@ PLEX_COMPANION_TYPES = frozenset({"jellyfin", "emby", "audiobookshelf", "romm"})
 
 
 INVITEE_NAME_MAX = 80
-
-
-def _acting_admin() -> str | None:
-    """Who is making this admin request, for an invite's "created by".
-
-    Behind Cloudflare Access it's the verified token's email (every Access
-    admin signs in as the same local admin). Otherwise it's the signed-in
-    admin's username. API-key requests have neither.
-    """
-    if not has_request_context():
-        return None
-    from app.services import cloudflare_access
-
-    if cloudflare_access.enabled():
-        email = (cloudflare_access.verified_claims() or {}).get("email")
-        if email:
-            return str(email)
-    if current_user.is_authenticated:
-        return getattr(current_user, "username", None)
-    return None
 
 
 def _invitee_name(form: Any) -> str | None:
@@ -220,7 +199,7 @@ def create_invite(form: Any) -> Invitation:
         unlimited=bool(form.get("unlimited")),
         duration=form.get("duration") or None,
         invitee_name=_invitee_name(form),
-        created_by=_acting_admin(),
+        created_by=acting_admin(),
         plex_allow_sync=bool(form.get("allowsync") or form.get("allow_downloads")),
         plex_home=bool(form.get("plex_home")),
         plex_allow_channels=bool(
