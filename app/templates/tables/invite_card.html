@@ -16,6 +16,11 @@
 {%- endmacro %}
 <div id="invite_table"
      class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 animate__animated">
+  {% if notice %}
+    <p class="col-span-full text-sm
+              {% if notice[0] %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}"
+       id="invite-notice">{{ notice[1] }}</p>
+  {% endif %}
   {% if not invitations %}
     <p id="error_message" class="text-center col-span-full dark:text-white">
       {{ _("There are currently no invitations.") }}
@@ -162,10 +167,19 @@
                   {% endif %}
                 </div>
               {% endif %}
-              {% if invite.people_progress %}
+              {% if invite.unlimited and (invite.paid_by or invite.max_people or invite.people_progress) %}
                 <div class="text-xs text-muted-foreground dark:text-gray-400"
                      data-people-progress>
-                  <span>{{ _("People") }}:</span>
+                  {% if invite.paid_by %}
+                    <div class="font-medium text-gray-700 dark:text-gray-300">{{ _("Paid by %(payer)s", payer=invite.paid_by) }}</div>
+                  {% endif %}
+                  <div>
+                    {% if invite.max_people %}
+                      {{ _("People: %(n)s of %(max)s", n=invite.people_progress|length, max=invite.max_people) }}
+                    {% else %}
+                      {{ _("People: %(n)s", n=invite.people_progress|length) }}
+                    {% endif %}
+                  </div>
                   {% for email, done in invite.people_progress.items() %}
                     <div>{{ email }}: {{ _("%(done)s of %(total)s set up", done=done, total=invite.servers|length) }}</div>
                   {% endfor %}
@@ -227,6 +241,15 @@
                     </path>
                   </svg>
                 </button>
+                {% if invite.unlimited %}
+                  <!-- Extend everyone on a shared invite -->
+                  <button class="h-8 px-2 inline-flex items-center justify-center text-xs font-medium text-white bg-primary hover:bg-primary_hover rounded-md transition-colors"
+                          hx-get="{{ url_for('admin.extend_invite_modal', invite_id=invite.id) }}"
+                          hx-target="#invite-modal"
+                          hx-swap="innerHTML"
+                          onclick="event.stopPropagation()"
+                          title="{{ _('Extend everyone') }}">{{ _("Extend everyone") }}</button>
+                {% endif %}
                 <!-- Delete invitation button -->
                 <button class="h-8 w-8 p-0 inline-flex items-center justify-center text-white bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 rounded-md transition-colors"
                         hx-get="{{ url_for('admin.delete_invite_modal', invite_id=invite.id) }}"

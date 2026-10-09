@@ -275,6 +275,28 @@ def invite_table():
                 db.session.delete(invitation)
                 db.session.commit()
 
+    # Renewing a shared invite's group: everyone on it gets the new end date.
+    notice = None
+    if raw_extend_id := request.args.get("extend_id"):
+        from app.services.invites import extend_group
+
+        try:
+            invitation = db.session.get(Invitation, int(raw_extend_id))
+            day = datetime.date.fromisoformat(request.form.get("ends_on") or "")
+            if invitation is None:
+                raise ValueError("That invitation no longer exists.")
+            changed = extend_group(invitation, day)
+            notice = (
+                True,
+                _(
+                    "Everyone on this invite now has access through %(day)s (%(n)s accounts).",
+                    day=day.strftime("%b %-d, %Y"),
+                    n=changed,
+                ),
+            )
+        except ValueError as exc:
+            notice = (False, str(exc) or _("Choose a valid date."))
+
     # ------------------------------------------------------------------
     # 2. Base query (libraries + servers)
     # ------------------------------------------------------------------
@@ -448,6 +470,7 @@ def invite_table():
         server_type=server_type,
         invitations=invites,
         rightnow=now,
+        notice=notice,
     )
 
 
@@ -473,6 +496,20 @@ def _rel_string(target: datetime.datetime, now: datetime.datetime) -> str:
     if mins >= 1:
         return _("in %(n)d m", n=mins)  # in 45 m
     return _("soon")
+
+
+@admin_bp.get("/invite/<int:invite_id>/extend-modal")
+@login_required
+def extend_invite_modal(invite_id: int):
+    """Ask for the new end date for everyone on a shared invite."""
+    from app.services.expiry import local_today
+
+    invitation = db.get_or_404(Invitation, invite_id)
+    return render_template(
+        "_partials/extend_invite_modal.html",
+        invitation=invitation,
+        today=local_today().isoformat(),
+    )
 
 
 @admin_bp.get("/invite/<int:invite_id>/delete-modal")

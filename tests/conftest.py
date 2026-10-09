@@ -101,6 +101,7 @@ def session(app):
         db.session.execute(db.text("DELETE FROM wizard_bundle"))
         db.session.execute(db.text("DELETE FROM invitation_progress"))
         db.session.execute(db.text("DELETE FROM email_code"))
+        db.session.execute(db.text("DELETE FROM invitation_person"))
         db.session.execute(db.text("DELETE FROM invitation_server"))
         db.session.execute(db.text("DELETE FROM invitation_user"))
         # Main tables
@@ -132,6 +133,7 @@ def session(app):
         db.session.execute(db.text("DELETE FROM wizard_bundle"))
         db.session.execute(db.text("DELETE FROM invitation_progress"))
         db.session.execute(db.text("DELETE FROM email_code"))
+        db.session.execute(db.text("DELETE FROM invitation_person"))
         db.session.execute(db.text("DELETE FROM invitation_server"))
         db.session.execute(db.text("DELETE FROM invitation_user"))
         # Main tables
