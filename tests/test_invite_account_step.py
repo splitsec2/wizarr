@@ -245,7 +245,8 @@ def test_one_submit_makes_both_accounts(client, abs_books, fake_media):
     assert states == {abs_server.id: "done", books.id: "done"}
     assert "Sign in with the details you just chose." in html
     assert "https://abs.example" in html
-    assert "KOReader catalog: https://books.example/opds" in html
+    assert "KOReader catalog:" in html
+    assert 'href="https://books.example/opds"' in html
     assert GOOD not in html
 
 
@@ -270,7 +271,7 @@ def test_settings_card_is_there_again_from_the_checklist(client, abs_books, fake
     checklist = client.get("/j/BOOKS123/steps").get_data(as_text=True)
     assert "/j/BOOKS123/steps/account/settings" in checklist
     card = client.get("/j/BOOKS123/steps/account/settings").get_data(as_text=True)
-    assert "KOReader catalog: https://books.example/opds" in card
+    assert 'href="https://books.example/opds"' in card
 
 
 # ── the books grant carries the password, never logged ───────────────────

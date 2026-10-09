@@ -716,17 +716,25 @@ def post_wizard(idx: int = 0):
                 session["wizard_bundle_id"] = invitation.wizard_bundle_id
                 return redirect(url_for("wizard.bundle_view", idx=idx))
 
-            # Check if this is a multi-server invitation
-            servers = []
-            try:
-                if hasattr(invitation, "servers") and invitation.servers:
-                    servers = list(invitation.servers)  # type: ignore
-            except Exception as e:
-                current_app.logger.error(
-                    f"Error loading servers for invitation {inv_code}: {e}",
-                    exc_info=True,
+            # Fork: each server can say what to do once set up (its note on the
+            # server's edit page). Show those first, then Wizarr's stock pages only
+            # for the servers this person set up that have no note.
+            from app.services import invite_steps
+
+            servers = invite_steps.set_up_servers(
+                invitation, invite_steps.person_in_session(invitation)
+            )
+            if (
+                any(invite_steps.has_note(s) for s in servers)
+                and session.get("wizard_notes_seen") != invitation.code
+            ):
+                return redirect(
+                    url_for("invite_steps.setup_page", code=invitation.code)
                 )
-                servers = []
+            had_servers = bool(servers)
+            servers = [s for s in servers if not invite_steps.has_note(s)]
+            if had_servers and not servers:
+                return redirect(url_for("wizard.complete"))
 
             # Priority 2: Check legacy single server relationship
             if not servers and hasattr(invitation, "server") and invitation.server:
@@ -749,7 +757,11 @@ def post_wizard(idx: int = 0):
                 return redirect(url_for("wizard.combo", category="post_invite"))
 
             # Single server invitation
-            server_type = _get_server_type_from_invitation(invitation)
+            server_type = (
+                servers[0].server_type
+                if servers
+                else _get_server_type_from_invitation(invitation)
+            )
 
     # Fallback to first configured server if no invitation context
     if not server_type:

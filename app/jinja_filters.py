@@ -1,6 +1,7 @@
 import contextlib
 import logging
 import os
+import re
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -256,6 +257,30 @@ def access_last_day(value) -> str:
     return local_date(value - timedelta(seconds=1), "%b %-d, %Y")
 
 
+# A web address, without trailing punctuation that usually ends a sentence.
+_URL_RE = re.compile(r"https?://[^\s<>\"']+[^\s<>\"'.,;:!?)\]]")
+
+
+def linkify(text) -> Markup:
+    """Plain text with its web addresses made into links; the rest is escaped."""
+    if not text:
+        return Markup("")
+    text = str(text)
+    parts = []
+    last = 0
+    for match in _URL_RE.finditer(text):
+        parts.append(escape(text[last : match.start()]))
+        parts.append(
+            Markup(
+                '<a href="{0}" target="_blank" rel="noopener noreferrer" '
+                'class="underline break-all">{0}</a>'
+            ).format(match.group(0))
+        )
+        last = match.end()
+    parts.append(escape(text[last:]))
+    return Markup("").join(parts)
+
+
 def register_filters(app):
     """Register the custom Jinja filters on the given Flask *app*."""
     app.jinja_env.filters.setdefault("server_type_tag", server_type_tag)
@@ -265,6 +290,7 @@ def register_filters(app):
     app.jinja_env.filters.setdefault("local_date", local_date)
     app.jinja_env.filters.setdefault("access_last_day", access_last_day)
     app.jinja_env.filters.setdefault("nl2br", nl2br)
+    app.jinja_env.filters.setdefault("linkify", linkify)
     app.jinja_env.filters.setdefault("render_jinja", render_jinja)
 
     # Add Python built-in functions to Jinja globals

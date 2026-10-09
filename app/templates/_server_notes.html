@@ -1,0 +1,16 @@
+{# Each server's address and its "After sign-up, tell them" note. Expects `servers`. #}
+<div class="space-y-4 text-sm" id="server-notes">
+  {% for server in servers if server.external_url or server.invitee_notes %}
+    <div class="p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+      <p class="font-medium text-gray-900 dark:text-white">{{ server.name }}</p>
+      {% if server.external_url %}
+        <p class="mt-1 text-gray-700 dark:text-gray-300">
+          {{ _("Address:") }} <span class="font-mono">{{ server.external_url|linkify }}</span>
+        </p>
+      {% endif %}
+      {% if server.invitee_notes %}
+        <p class="mt-1 text-gray-700 dark:text-gray-300 whitespace-pre-line break-words">{{ server.invitee_notes|linkify }}</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>

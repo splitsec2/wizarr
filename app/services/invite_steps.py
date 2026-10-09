@@ -37,6 +37,8 @@ SKIPPED = "skipped"
 PLEX_STEP = "plex"
 ACCOUNT_STEP = "account"
 SINGLE_PERSON = ""
+# Browser session key: {invite code (lowercase): email this browser proved}.
+VERIFIED_SESSION_KEY = "invite_steps_verified"
 
 
 @dataclass(frozen=True)
@@ -247,3 +249,30 @@ def earlier_account(invitation: Invitation, person: str = SINGLE_PERSON) -> User
     if person:
         query = query.filter(func.lower(User.email) == person)
     return query.order_by(User.id.asc()).first()
+
+
+def person_in_session(invitation: Invitation) -> str:
+    """Whose progress the current browser is looking at: the email it proved
+    on a shared invite, or the invite itself when single-use."""
+    if not multi_use(invitation):
+        return SINGLE_PERSON
+    from flask import session
+
+    return (session.get(VERIFIED_SESSION_KEY) or {}).get(invitation.code.lower(), "")
+
+
+def has_note(server: MediaServer) -> bool:
+    """Whether the server says anything to the person once they are set up."""
+    return bool(server.external_url or server.invitee_notes)
+
+
+def set_up_servers(
+    invitation: Invitation, person: str = SINGLE_PERSON
+) -> list[MediaServer]:
+    """The servers this person set up from the invite. An invite that doesn't
+    use the checklist set up all of its servers in one go."""
+    servers = cast("list[MediaServer]", invitation.servers or [])
+    if not uses_steps(invitation):
+        return list(servers)
+    states = server_states(invitation, person)
+    return [s for s in servers if states.get(s.id) == DONE]
