@@ -46,6 +46,10 @@ _VERIFIED = "invite_steps_verified"
 _PENDING = "invite_steps_pending_email"
 
 
+def _full_message() -> str:
+    return _("This invite is full. Ask the person who sent it to you.")
+
+
 def _invalid():
     return render_template("invalid-invite.html", error=_("Invalid invite"))
 
@@ -374,6 +378,14 @@ def email_gate(code):
             email=email,
             error=_("Enter a valid email address."),
         )
+    if invite_steps.multi_use(invitation) and invite_steps.is_full(invitation, email):
+        return render_template(
+            "invite-step-email.html",
+            invitation=invitation,
+            next_url=next_url,
+            email=email,
+            error=_full_message(),
+        )
     sent, reason = email_codes.send_code(invitation, email)
     if not sent:
         return render_template(
@@ -402,6 +414,17 @@ def verify_code(code):
     error = None
     if request.method == "POST":
         if email_codes.check_code(invitation, email, request.form.get("code") or ""):
+            if invite_steps.multi_use(invitation) and not invite_steps.add_person(
+                invitation, email
+            ):
+                session.pop(_PENDING, None)
+                return render_template(
+                    "invite-step-email.html",
+                    invitation=invitation,
+                    next_url=next_url,
+                    email=email,
+                    error=_full_message(),
+                )
             verified = dict(session.get(_VERIFIED) or {})
             verified[invitation.code.lower()] = email
             session[_VERIFIED] = verified
