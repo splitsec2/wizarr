@@ -101,6 +101,55 @@ def _invitee_name(form: Any) -> str | None:
     return name[:INVITEE_NAME_MAX]
 
 
+MAX_PEOPLE_LIMIT = 100
+PAID_BY_MAX = 80
+
+
+def _shared_settings(form: Any) -> tuple[int | None, str | None]:
+    """Read "How many people" and "Paid by", which only a shared invite has."""
+    raw_max = str(form.get("max_people") or "").strip()
+    paid_by = " ".join(str(form.get("paid_by") or "").split())[:PAID_BY_MAX] or None
+    if not form.get("unlimited"):
+        if raw_max or paid_by:
+            raise ValueError(
+                "How many people and Paid by are for an invite several people "
+                "use. Turn on Unlimited Usages, or leave them empty."
+            )
+        return None, None
+    max_people = None
+    if raw_max:
+        try:
+            max_people = int(raw_max)
+        except ValueError:
+            raise ValueError("How many people must be a number.") from None
+        if not 1 <= max_people <= MAX_PEOPLE_LIMIT:
+            raise ValueError(
+                f"How many people must be between 1 and {MAX_PEOPLE_LIMIT}."
+            )
+    return max_people, paid_by
+
+
+def extend_group(invitation: Invitation, day: datetime.date) -> int:
+    """Move everyone on *invitation* to access ending on *day*.
+
+    Every account that joined with it gets the new end, and so does anyone
+    who joins later (the per-server expiry the join reads). Returns the number
+    of accounts changed.
+    """
+    from app.services.expiry import access_end, local_today, set_server_specific_expiry
+
+    if day < local_today():
+        raise ValueError("The new end date is in the past.")
+    ends = access_end(day)
+    for server in cast("list[MediaServer]", invitation.servers or []):
+        set_server_specific_expiry(invitation.id, server.id, ends, commit=False)
+    accounts = User.query.filter_by(code=invitation.code).all()
+    for account in accounts:
+        account.expires = ends
+    db.session.commit()
+    return len(accounts)
+
+
 def create_invite(form: Any) -> Invitation:
     """Takes a WTForms or dict-like `form` with the same keys as your old version."""
     # generate or validate provided code
@@ -212,6 +261,7 @@ def create_invite(form: Any) -> Invitation:
         for s in servers
     }
 
+    shared = _shared_settings(form)
     invite = Invitation(
         code=code,
         used=False,
@@ -221,6 +271,8 @@ def create_invite(form: Any) -> Invitation:
         unlimited=bool(form.get("unlimited")),
         duration=form.get("duration") or None,
         invitee_name=_invitee_name(form),
+        max_people=shared[0],
+        paid_by=shared[1],
         created_by=acting_admin(),
         plex_allow_sync=bool(form.get("allowsync") or form.get("allow_downloads")),
         plex_home=bool(form.get("plex_home")),
