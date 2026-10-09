@@ -42,7 +42,7 @@ invite_steps_bp = Blueprint("invite_steps", __name__)
 _DID_A_STEP = "invite_steps_code"
 # {invite code: email} this browser proved with an emailed code, and the address
 # a code was last sent to.
-_VERIFIED = "invite_steps_verified"
+_VERIFIED = invite_steps.VERIFIED_SESSION_KEY
 _PENDING = "invite_steps_pending_email"
 
 
@@ -75,9 +75,7 @@ def _verified_email(invitation) -> str | None:
 
 def _person(invitation) -> str:
     """Whose progress this is: the verified email on a shared invite."""
-    if invite_steps.multi_use(invitation):
-        return _verified_email(invitation) or ""
-    return invite_steps.SINGLE_PERSON
+    return invite_steps.person_in_session(invitation)
 
 
 def _gate(invitation, next_url: str):
@@ -116,7 +114,7 @@ def _mark_done(invitation, step) -> None:
 
 def _has_notes(step) -> bool:
     """Whether the step's servers have anything to tell the person afterwards."""
-    return any(s.external_url or s.invitee_notes for s in step.servers)
+    return any(invite_steps.has_note(s) for s in step.servers)
 
 
 @invite_steps_bp.route("/j/<code>/steps")
@@ -201,6 +199,8 @@ def _plex_step(invitation, step):
             ),
         )
     _mark_done(invitation, step)
+    if _has_notes(step):
+        return _notes_page(invitation, step)
     return redirect(_checklist_url(invitation))
 
 
@@ -437,4 +437,31 @@ def verify_code(code):
         next_url=next_url,
         email=email,
         error=error,
+    )
+
+
+# ── After joining: what each service the person set up says about it ────────
+
+
+@invite_steps_bp.route("/j/<code>/setup")
+@limiter.limit("50 per minute")
+def setup_page(code):
+    """The notes of every server this person set up, before Wizarr's stock
+    setup pages, which only cover the servers without a note."""
+    invitation = invite_steps.find_invitation(code)
+    if invitation is None or (session.get("wizard_access") or "").lower() != (
+        invitation.code.lower()
+    ):
+        return _invalid()
+    servers = invite_steps.set_up_servers(invitation, _person(invitation))
+    session["wizard_notes_seen"] = invitation.code
+    without_note = [s for s in servers if not invite_steps.has_note(s)]
+    return render_template(
+        "invite-setup.html",
+        invitation=invitation,
+        servers=[s for s in servers if invite_steps.has_note(s)],
+        more_help=bool(without_note),
+        next_url=url_for("wizard.post_wizard")
+        if without_note
+        else url_for("wizard.complete"),
     )
