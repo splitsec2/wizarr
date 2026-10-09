@@ -56,6 +56,11 @@
                       {{ _("Invited by %(who)s, %(when)s", who=invited[0], when=invited[1]|local_date("%b %-d, %Y")) }}
                     </p>
                   {% endif %}
+                  {% set payer = user.supported_by() %}
+                  {% if payer %}
+                    <p class="text-xs text-muted-foreground dark:text-gray-400 truncate"
+                       data-supported-by>{{ _("Part of %(payer)s's support", payer=payer) }}</p>
+                  {% endif %}
                   {% set setup = user.invite_setup() %}
                   {% if setup %}
                     <p class="text-xs text-muted-foreground dark:text-gray-400 truncate"

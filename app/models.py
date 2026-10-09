@@ -104,6 +104,10 @@ class Invitation(db.Model):
     # Who the invite is for; joined accounts are named after it. Not used on
     # unlimited invites, which are shared by several people.
     invitee_name = db.Column(db.String, nullable=True)
+    # A shared invite: the most people who can join (None = no limit), and who
+    # pays for all of them (shown as "Part of <paid_by>'s support").
+    max_people = db.Column(db.Integer, nullable=True)
+    paid_by = db.Column(db.String, nullable=True)
     # The admin who created the invite (an API key counts as its creator).
     created_by_id = db.Column(
         db.Integer,
@@ -264,6 +268,15 @@ class User(db.Model, UserMixin):
             (step.name, invite_steps.state_of(step, states) or "todo")
             for step in invite_steps.steps_for(invitation)
         ]
+
+    def supported_by(self) -> str | None:
+        """Who pays for this account, when it joined with a shared invite."""
+        if not self.code:
+            return None
+        invite = Invitation.query.filter_by(code=self.code).first()
+        if invite is None or not invite.unlimited:
+            return None
+        return invite.paid_by or None
 
     def invited_by(self) -> tuple[str, datetime] | None:
         """Who created the invite this account joined with, and when."""
@@ -1179,6 +1192,27 @@ class ActivitySnapshot(db.Model):
 # ────────────────────────────────────────────────────────────────────────────
 # LDAP/OIDC Integration Models (2025-12)
 # ────────────────────────────────────────────────────────────────────────────
+
+
+class InvitationPerson(db.Model):
+    """Someone who proved their email on a shared invite. A shared invite's
+    people limit counts these; someone already here can always come back."""
+
+    __tablename__ = "invitation_person"
+    __table_args__ = (
+        db.UniqueConstraint("invitation_id", "email", name="uq_invitation_person"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    invitation_id = db.Column(
+        db.Integer,
+        db.ForeignKey("invitation.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    email = db.Column(db.String, nullable=False)
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
 
 
 class EmailCode(db.Model):

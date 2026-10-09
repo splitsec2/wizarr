@@ -23,7 +23,13 @@ from typing import cast
 from sqlalchemy import func
 
 from app.extensions import db
-from app.models import Invitation, InvitationProgress, MediaServer, User
+from app.models import (
+    Invitation,
+    InvitationPerson,
+    InvitationProgress,
+    MediaServer,
+    User,
+)
 from app.services.media.client_base import capabilities_for, join_fields_for
 
 DONE = "done"
@@ -110,14 +116,49 @@ def is_expired(invitation: Invitation) -> bool:
 
 
 def people(invitation: Invitation) -> dict[str, dict[int, str]]:
-    """Each person's progress on a shared invite: {email: {server id: state}}."""
-    found: dict[str, dict[int, str]] = {}
+    """Everyone who proved their email on a shared invite, in the order they
+    joined, with their progress: {email: {server id: state}}."""
+    found: dict[str, dict[int, str]] = {
+        row.email: {}
+        for row in InvitationPerson.query.filter_by(invitation_id=invitation.id)
+        .order_by(InvitationPerson.id)
+        .all()
+    }
     for row in InvitationProgress.query.filter(
         InvitationProgress.invitation_id == invitation.id,
         InvitationProgress.person != SINGLE_PERSON,
     ):
         found.setdefault(row.person, {})[row.server_id] = row.state
     return found
+
+
+def is_person(invitation: Invitation, email: str) -> bool:
+    return (
+        InvitationPerson.query.filter_by(
+            invitation_id=invitation.id, email=email
+        ).first()
+        is not None
+    )
+
+
+def is_full(invitation: Invitation, email: str) -> bool:
+    """Whether *email* would be one person too many. Someone already on the
+    invite can always come back."""
+    if not invitation.max_people or is_person(invitation, email):
+        return False
+    count = InvitationPerson.query.filter_by(invitation_id=invitation.id).count()
+    return count >= invitation.max_people
+
+
+def add_person(invitation: Invitation, email: str) -> bool:
+    """Record *email* as one of the invite's people; False when it is full."""
+    if is_person(invitation, email):
+        return True
+    if is_full(invitation, email):
+        return False
+    db.session.add(InvitationPerson(invitation_id=invitation.id, email=email))
+    db.session.commit()
+    return True
 
 
 def server_states(
