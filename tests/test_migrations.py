@@ -214,6 +214,38 @@ def test_invite_creator_text_becomes_an_account_link(migration_app, temp_db):
         }
 
 
+@pytest.mark.parametrize(
+    "start", ["20261009_invite_people", "20260903_pushover"], ids=["fork", "upstream"]
+)
+def test_either_branch_upgrades_to_the_merged_head(migration_app, temp_db, start):
+    """A database on the fork's chain (the live one) or upstream's gets the
+    other side's tables and columns when it upgrades to the merge revision."""
+    with migration_app.app_context():
+        upgrade(revision=start)
+        upgrade()
+
+        engine = create_engine(temp_db)
+        with engine.connect() as connection:
+            version = connection.execute(
+                text("SELECT version_num FROM alembic_version")
+            ).scalar_one()
+            tables = {
+                row[0]
+                for row in connection.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table'")
+                )
+            }
+            connection_cols = {
+                row[1]
+                for row in connection.execute(
+                    text("PRAGMA table_info(ombi_connection)")
+                )
+            }
+        assert version == "20261011_merge_upstream"
+        assert {"invitation_person", "email_code", "invitation_progress"} <= tables
+        assert "provision_plex_users" in connection_cols
+
+
 def test_problematic_migration_specifically(migration_app, temp_db):
     """Test the specific migration that was causing issues in production."""
     with migration_app.app_context():
