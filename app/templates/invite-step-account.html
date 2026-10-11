@@ -26,6 +26,7 @@
           {% endif %}
           <form class="space-y-4"
                 method="post"
+                onsubmit="this.querySelectorAll('button[type=submit]').forEach(b => b.disabled = true)"
                 action="{{ url_for('invite_steps.run_step', code=invitation.code, key=step.key) }}">
             {% if "username" in fields %}
               <div>
