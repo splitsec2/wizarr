@@ -99,15 +99,18 @@ def uses_steps(invitation: Invitation) -> bool:
     from app.services import mailer
     from app.services.ldap.invitation_ldap import InvitationLDAPHandler
 
-    # People on a shared invite are told apart by an emailed code.
-    if multi_use(invitation) and not mailer.is_configured():
-        return False
-    if InvitationLDAPHandler(invitation).should_create_ldap_user():
-        return False
+    # The admin tables ask this for every row, so the checks that need no
+    # query come first.
     steps = steps_for(invitation)
     if multi_use(invitation):
-        return bool(steps)
-    return len(steps) >= 2 or any(step.strong_password for step in steps)
+        # People on a shared invite are told apart by an emailed code.
+        if not steps or not mailer.is_configured():
+            return False
+    elif len(steps) < 2 and not any(step.strong_password for step in steps):
+        return False
+    if invitation.create_ldap_user is True:
+        return not InvitationLDAPHandler(invitation).should_create_ldap_user()
+    return True
 
 
 def is_expired(invitation: Invitation) -> bool:
