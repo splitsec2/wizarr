@@ -376,6 +376,16 @@ def invite_table():
             )
         ).fetchall()
         flags = {(r.invite_id, r.server_id): bool(r.used) for r in raw_flags}
+        # The same rows carry each server's access end date for the card.
+        ends_by_invite: dict[int, dict[int, datetime.datetime]] = {}
+        for r in raw_flags:
+            if r.expires is not None:
+                ends_by_invite.setdefault(r.invite_id, {})[r.server_id] = r.expires
+        for inv in invites:
+            ends = ends_by_invite.get(inv.id, {})
+            inv.preloaded_access_ends = {
+                srv.name: ends[srv.id] for srv in inv.servers if srv.id in ends
+            }
 
     # ------------------------------------------------------------------
     # 4. Time context (timezone aware strongly recommended)
@@ -1284,6 +1294,19 @@ def _group_users_for_display(user_list):
         )
         for inv_code, created in rows:
             invited_by_code.setdefault(inv_code, created)
+    # The invitations themselves, for the card's invited-by, payer and setup
+    # lines, also in one query.
+    invitations: dict[str, Invitation] = {}
+    if codes:
+        for inv in (
+            Invitation.query.options(
+                db.selectinload(Invitation.servers),
+                db.joinedload(Invitation.created_by),
+            )
+            .filter(Invitation.code.in_(codes))
+            .order_by(Invitation.id)
+        ):
+            invitations.setdefault(inv.code, inv)
 
     cards = []
     for lst in groups.values():
@@ -1311,6 +1334,7 @@ def _group_users_for_display(user_list):
         primary.earliest_expires = expires
         primary.allowSync = allow_sync
         primary.invited_date = invited_date
+        primary.preloaded_invitation = invitations.get(code)
         # Note: allow_downloads and allow_live_tv are properties - no need to set them
         cards.append(primary)
     return cards

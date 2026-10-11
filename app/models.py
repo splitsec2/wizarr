@@ -174,7 +174,11 @@ class Invitation(db.Model):
         return len(list(self.users))  # type: ignore
 
     def access_ends(self) -> dict[str, datetime]:
-        """Per-server access end times set on this invite, by server name."""
+        """Per-server access end times set on this invite, by server name.
+        The invite table sets ``preloaded_access_ends`` for its whole page."""
+        preloaded = self.__dict__.get("preloaded_access_ends")
+        if preloaded is not None:
+            return preloaded
         rows = db.session.execute(
             db.select(MediaServer.name, invitation_servers.c.expires)
             .join(MediaServer, MediaServer.id == invitation_servers.c.server_id)
@@ -259,11 +263,9 @@ class User(db.Model, UserMixin):
     def invite_setup(self) -> list[tuple[str, str]]:
         """Each service on the checklist invite this account joined with, and
         whether it was set up ("done"), "skipped" or is still "todo"."""
-        if not self.code:
-            return []
         from app.services import invite_steps
 
-        invitation = invite_steps.find_invitation(self.code)
+        invitation = self._joined_invitation()
         if invitation is None or not invite_steps.uses_steps(invitation):
             return []
         person = (
@@ -277,20 +279,27 @@ class User(db.Model, UserMixin):
             for step in invite_steps.steps_for(invitation)
         ]
 
-    def supported_by(self) -> str | None:
-        """Who pays for this account, when it joined with a shared invite."""
+    def _joined_invitation(self) -> "Invitation | None":
+        """The invite this account joined with (the first, if two share the
+        code). The users table sets ``preloaded_invitation`` for its page."""
+        if "preloaded_invitation" in self.__dict__:
+            return self.__dict__["preloaded_invitation"]
         if not self.code:
             return None
-        invite = Invitation.query.filter_by(code=self.code).first()
+        return (
+            Invitation.query.filter_by(code=self.code).order_by(Invitation.id).first()
+        )
+
+    def supported_by(self) -> str | None:
+        """Who pays for this account, when it joined with a shared invite."""
+        invite = self._joined_invitation()
         if invite is None or not invite.unlimited:
             return None
         return invite.paid_by or None
 
     def invited_by(self) -> tuple[str, datetime] | None:
         """Who created the invite this account joined with, and when."""
-        if not self.code:
-            return None
-        invite = Invitation.query.filter_by(code=self.code).first()
+        invite = self._joined_invitation()
         if invite is None or invite.created_by is None:
             return None
         return invite.created_by.shown_name, invite.created
