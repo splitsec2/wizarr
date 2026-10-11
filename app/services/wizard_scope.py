@@ -34,8 +34,9 @@ def invited_server(server_type: str) -> MediaServer | None:
     """
     invitation = current_invitation()
     if invitation is not None:
+        legacy = cast("MediaServer | None", invitation.server)
         servers = list(cast("Iterable[MediaServer]", invitation.servers)) or (
-            [invitation.server] if invitation.server else []
+            [legacy] if legacy else []
         )
         return next((s for s in servers if s.server_type == server_type), None)
     if current_user.is_authenticated:
