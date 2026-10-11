@@ -18,6 +18,7 @@
             <p class="text-sm text-red-600 dark:text-red-400" id="email-error">{{ error }}</p>
           {% endif %}
           <form method="post"
+                onsubmit="this.querySelectorAll('button[type=submit]').forEach(b => b.disabled = true)"
                 class="space-y-4"
                 action="{{ url_for('invite_steps.email_gate', code=invitation.code) }}">
             <input type="hidden" name="next" value="{{ next_url }}">

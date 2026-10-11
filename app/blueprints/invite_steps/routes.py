@@ -8,6 +8,8 @@ comes from what the servers' clients declare (invite_steps.Step).
 """
 
 import re
+import threading
+from contextlib import contextmanager
 
 from flask import (
     Blueprint,
@@ -48,6 +50,22 @@ _PENDING = "invite_steps_pending_email"
 
 def _full_message() -> str:
     return _("This invite is full. Ask the person who sent it to you.")
+
+
+# One person's account step runs once at a time. A double tap or a resent form
+# otherwise creates the same accounts twice in parallel, and the second run
+# reports the first run's accounts as "already exists". Wizarr runs in one
+# process (gunicorn threads), so a lock per invite and person is enough.
+_step_locks: dict[str, threading.Lock] = {}
+_step_locks_guard = threading.Lock()
+
+
+@contextmanager
+def _one_at_a_time(key: str):
+    with _step_locks_guard:
+        lock = _step_locks.setdefault(key, threading.Lock())
+    with lock:
+        yield
 
 
 def _invalid():
@@ -266,25 +284,29 @@ def _account_step(invitation, step):
     if problem:
         return form(problem, values)
 
-    # A retry after a partial failure only makes what is still missing.
-    pending = [
-        s for s in step.servers if not invite_steps.joined(invitation, s, person)
-    ]
-    succeeded, failed = join_servers(
-        pending,
-        {
-            "username": values["username"] or values["email"],
-            "email": values["email"],
-            "password": values["password"],
-            "confirm_password": values["password"],
-            "code": invitation.code,
-        },
-        invitation.code,
-    )
-    for result in succeeded:
-        invite_steps.record_server(
-            invitation, result.server, invite_steps.DONE, person=person
-        )
+    form_data = {
+        "username": values["username"] or values["email"],
+        "email": values["email"],
+        "password": values["password"],
+        "confirm_password": values["password"],
+        "code": invitation.code,
+    }
+    failed = []
+    with _one_at_a_time(f"{invitation.code.lower()}:{person}"):
+        # Each server is checked again right before its account is made and
+        # marked done right after, so a retry (or a second submit that waited
+        # for the first) only makes what is still missing.
+        for server in step.servers:
+            if invite_steps.joined(invitation, server, person):
+                continue
+            succeeded, server_failed = join_servers(
+                [server], form_data, invitation.code
+            )
+            for result in succeeded:
+                invite_steps.record_server(
+                    invitation, result.server, invite_steps.DONE, person=person
+                )
+            failed += server_failed
     if failed:
         names = " and ".join(result.server.name for result in failed)
         return form(
