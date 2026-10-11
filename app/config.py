@@ -107,6 +107,12 @@ class BaseConfig:
     PROXY_FIX_X_PORT = env_int("PROXY_FIX_X_PORT", 1)
     PROXY_FIX_X_PREFIX = env_int("PROXY_FIX_X_PREFIX", 1)
 
+    # Rate limits are off unless RATELIMIT_ENABLED is set. They count per
+    # client address, so behind a reverse proxy or tunnel also set
+    # TRUST_PROXY_HEADERS: otherwise every visitor arrives from the proxy and
+    # shares one limit.
+    RATELIMIT_ENABLED = env_bool("RATELIMIT_ENABLED", False)
+
     # Babel / i18n
     LANGUAGES: ClassVar[dict[str, str]] = {
         "en": "English",

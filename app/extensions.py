@@ -27,7 +27,7 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[],  # No default limits
     storage_uri="memory://",
-    enabled=False,  # Explicitly disabled by default
+    enabled=False,  # Off unless RATELIMIT_ENABLED is set (config.py)
 )
 
 # Initialize Flask-RESTX API with OpenAPI configuration
