@@ -310,3 +310,64 @@ def test_grant_carries_the_password_only_when_chosen(monkeypatch, caplog):
 def test_step_name_lists_its_servers(abs_books):
     invitation, _abs, _books = abs_books
     assert invite_steps.steps_for(invitation)[0].name == "AudioBookShelf and Books"
+
+
+def test_two_submits_at_once_make_each_account_once(app, abs_books, monkeypatch):
+    """A double tap sent two submits at once: each made the accounts and the
+    second reported the first's as "already exists". Now they run one after
+    the other and the second finds everything done."""
+    import threading
+    import time
+
+    _invitation, abs_server, books = abs_books
+    joins: list[int] = []
+
+    class SlowClient:
+        def __init__(self, server):
+            self.server = server
+
+        def join(self, username, password, confirm, email, code):
+            if any(s == self.server.id for s in joins):
+                return False, "User or e-mail already exists."
+            time.sleep(0.2)
+            with app.app_context():
+                db.session.add(
+                    User(
+                        token=f"t{self.server.id}",
+                        username=username,
+                        email=email,
+                        code=code,
+                        server_id=self.server.id,
+                    )
+                )
+                db.session.commit()
+            joins.append(self.server.id)
+            return True, "ok"
+
+    monkeypatch.setattr(
+        "app.services.invitation_flow.workflows.get_client_for_media_server",
+        SlowClient,
+    )
+    pages: list[str] = []
+
+    def submit():
+        client = app.test_client()
+        _verified(client, "BOOKS123", "rob@example.com")
+        resp = client.post(
+            "/j/BOOKS123/steps/account",
+            data={
+                "username": "robp",
+                "password": GOOD,
+                "confirm_password": GOOD,
+            },
+        )
+        pages.append(resp.get_data(as_text=True))
+
+    threads = [threading.Thread(target=submit) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sorted(joins) == sorted([abs_server.id, books.id])
+    assert not any("could not be set up" in page for page in pages)
