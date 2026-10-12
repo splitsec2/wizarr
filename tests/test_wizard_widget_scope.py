@@ -7,16 +7,12 @@ the widget uses the invite's server and the libraries it grants, nothing
 without an invite (except an admin preview), and a Referer opens nothing.
 """
 
-from types import SimpleNamespace
-from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
 
 from app.models import Invitation, Library, MediaServer
 from app.services import wizard_widgets
-from app.services.media.client_base import MediaClient
-from app.services.media.plex import PlexClient
 from app.services.wizard_widgets import RecentlyAddedMediaWidget
 
 
@@ -47,8 +43,8 @@ def fake_clients(monkeypatch):
 
     def client_for(_type, server):
         client = Mock()
-        client.get_recent_items_in.side_effect = lambda names, limit: (
-            calls.append((server.name, sorted(names))) or [{"title": "x"}]
+        client.get_recent_items.side_effect = lambda limit, library_names: (
+            calls.append((server.name, sorted(library_names))) or [{"title": "x"}]
         )
         return client
 
@@ -112,28 +108,3 @@ def test_forged_referer_does_not_open_the_wizard(client, session):
         "/wizard/plex/0", headers={"Referer": "https://example.com/j/ANYTHING"}
     )
     assert resp.status_code == 302
-
-
-def test_base_client_looks_up_libraries_by_name(session, servers):
-    _family, public = servers
-    fake = SimpleNamespace(
-        server_id=public.id, get_recent_items=Mock(return_value=[{"title": "m"}])
-    )
-    MediaClient.get_recent_items_in(cast(Any, fake), ["Music"], limit=5)
-    fake.get_recent_items.assert_called_once_with(library_id="p2", limit=5)
-
-
-def test_plex_finds_sections_by_title():
-    client = PlexClient.__new__(PlexClient)
-    client.url = "http://p"
-    sections = [
-        SimpleNamespace(title="Home Videos", key=1),
-        SimpleNamespace(title="Music", key=7),
-    ]
-    client._server = cast(
-        Any, SimpleNamespace(library=SimpleNamespace(sections=lambda: sections))
-    )
-    client.get_recent_items = Mock(return_value=[{"title": "m"}])
-
-    client.get_recent_items_in(["Music"], limit=6)
-    client.get_recent_items.assert_called_once_with(library_id="7", limit=6)
