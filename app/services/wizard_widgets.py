@@ -137,7 +137,7 @@ class RecentlyAddedMediaWidget(WizardWidget):
                 if not names:
                     return {"items": [], "limit": limit}
             return {
-                "items": client.get_recent_items_in(names, limit=limit),
+                "items": client.get_recent_items(limit=limit, library_names=set(names)),
                 "limit": limit,
             }
         except Exception:
