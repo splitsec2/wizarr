@@ -9,7 +9,7 @@ every server.
 import hashlib
 import threading
 from contextlib import contextmanager
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from sqlalchemy import event
@@ -221,9 +221,13 @@ def test_navidrome_sync_query_count_does_not_grow(session):
         _clear_users(session)
         _seed_users(session, server, [f"n{i}" for i in range(count // 2)])
         client = _client(NavidromeClient, server)
-        remote = {"users": {"user": [{"username": f"n{i}"} for i in range(count)]}}
+        remote = MagicMock()
+        remote.json.return_value = [
+            {"id": f"id{i}", "userName": f"n{i}", "isAdmin": False}
+            for i in range(count)
+        ]
         with (
-            patch.object(NavidromeClient, "_subsonic_request", return_value=remote),
+            patch.object(NavidromeClient, "_native", return_value=remote),
             count_selects() as counter,
         ):
             client.list_users()
