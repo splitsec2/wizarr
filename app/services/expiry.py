@@ -10,7 +10,7 @@ from pathlib import Path
 from app.extensions import db
 from app.jinja_filters import local_timezone
 from app.models import ExpiredUser, Invitation, User, invitation_servers
-from app.services.media.service import delete_user, disable_user
+from app.services.media.service import delete_user, disable_user, enable_user
 
 try:
     import fcntl
@@ -347,6 +347,27 @@ def _disable_expired_user(user: User) -> bool:
     db.session.flush()
     db.session.commit()
     return True
+
+
+def reenable_if_renewed(user: User) -> bool:
+    """Switch a disabled account back on once its expiry is no longer past.
+
+    Expiry disables an account instead of deleting it, so a renewal has to
+    undo that. Call this after saving a new ``expires``. It enables only a
+    disabled account, so an active one is never sent a second enable, and
+    leaves an account whose expiry is still in the past alone: the next
+    expiry run would only disable it again. No expiry at all counts as
+    renewed. Returns True when the account was switched on.
+    """
+    if not user.is_disabled:
+        return False
+    if user.expires is not None:
+        ends = user.expires
+        if ends.tzinfo is None:
+            ends = ends.replace(tzinfo=datetime.UTC)
+        if ends <= datetime.datetime.now(datetime.UTC):
+            return False
+    return enable_user(user.id)
 
 
 @_one_expiry_run_at_a_time
