@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import re
@@ -23,7 +24,7 @@ import requests
 from requests.adapters import HTTPAdapter
 
 from app.extensions import db
-from app.models import MediaServer, Settings, User
+from app.models import Library, MediaServer, Settings, User
 from app.services.notifications import notify
 
 if TYPE_CHECKING:
@@ -144,9 +145,40 @@ class ClientCapabilities:
     # The password must pass the strong check (password_policy), for a server
     # that stores it somewhere a weak one is easy to recover.
     strong_password: bool = False
+    # What the server's admin sign-in needs besides its address, in order. Empty
+    # means a single API key. ("username", "password") is stored packed in the
+    # API key field (``pack_credentials``) and read back with ``unpack_credentials``.
+    credentials: tuple[str, ...] = ()
+    # The server can limit a user to the libraries an invite picks
+    # (``MediaClient.invite_library_ids``).
+    library_selection: bool = False
 
 
 DEFAULT_CAPABILITIES = ClientCapabilities()
+
+
+def pack_credentials(username: str, password: str) -> str:
+    """Store a username and password in the single API key field.
+
+    The same ``base64(username:password)`` RomM already used, so a stored RomM
+    key reads back with ``unpack_credentials`` unchanged.
+    """
+    return base64.b64encode(f"{username}:{password}".encode()).decode()
+
+
+def unpack_credentials(token: str | None) -> tuple[str, str]:
+    """Split a key made by ``pack_credentials`` into (username, password).
+
+    Raises ``ValueError`` when the key is not in that form.
+    """
+    try:
+        raw = base64.b64decode(token or "", validate=True).decode()
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("Expected a packed username and password") from exc
+    username, sep, password = raw.partition(":")
+    if not sep or not username:
+        raise ValueError("Expected a packed username and password")
+    return username, password
 
 
 def capabilities_for(server_type: str) -> ClientCapabilities:
@@ -389,6 +421,25 @@ class MediaClient(ABC):
         )
         db.session.commit()
         return new_user
+
+    def invite_library_ids(self, invitation) -> list[str]:
+        """External ids of the libraries *invitation* picks on this server.
+
+        Empty when the invite picks none here or picks every one: the person
+        gets all libraries. Clients that can limit a user to some libraries
+        (``capabilities.library_selection``) apply this to the account they
+        create, so none of them leaves the account without libraries.
+        """
+        server_id = getattr(self, "server_id", None)
+        selected = [
+            lib
+            for lib in (getattr(invitation, "libraries", None) or [])
+            if lib.server_id == server_id
+        ]
+        total = Library.query.filter_by(enabled=True, server_id=server_id).count()
+        if not selected or len(selected) == total:
+            return []
+        return [lib.external_id for lib in selected]
 
     @abstractmethod
     def libraries(self):
