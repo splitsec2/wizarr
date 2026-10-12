@@ -34,7 +34,7 @@ from app.models import (
     invitation_users,
 )
 from app.services import invite_steps
-from app.services.expiry import get_expiring_this_week_users
+from app.services.expiry import get_expiring_this_week_users, reenable_if_renewed
 from app.services.identity_linking import link_user_accounts, primary_account
 from app.services.invites import create_invite
 from app.services.media.service import (
@@ -758,6 +758,9 @@ def user_detail(db_id: int):
         # not during individual user editing.
 
         db.session.commit()
+
+        # A renewed account that expiry had disabled comes back on
+        reenable_if_renewed(user)
 
         # Close the modal and refresh the user table to preserve filters/sorting
         response = Response("")
