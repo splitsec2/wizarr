@@ -136,7 +136,12 @@ def extend_group(invitation: Invitation, day: datetime.date) -> int:
     who joins later (the per-server expiry the join reads). Returns the number
     of accounts changed.
     """
-    from app.services.expiry import access_end, local_today, set_server_specific_expiry
+    from app.services.expiry import (
+        access_end,
+        local_today,
+        reenable_if_renewed,
+        set_server_specific_expiry,
+    )
 
     if day < local_today():
         raise ValueError("The new end date is in the past.")
@@ -147,6 +152,9 @@ def extend_group(invitation: Invitation, day: datetime.date) -> int:
     for account in accounts:
         account.expires = ends
     db.session.commit()
+    # Accounts that expiry had disabled come back on with the new end date
+    for account in accounts:
+        reenable_if_renewed(account)
     return len(accounts)
 
 
