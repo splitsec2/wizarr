@@ -235,55 +235,31 @@ def check_kavita(url: str, token: str) -> tuple[bool, str]:
 
 
 def check_navidrome(url: str, token: str) -> tuple[bool, str]:
-    """Quick connectivity check for a Navidrome instance.
+    """Sign in to Navidrome as the saved admin.
 
-    We perform a lightweight request to the ``/rest/ping`` endpoint which is
-    available to check server connectivity using the Subsonic API.
-    When *token* (password) is provided, we authenticate using the salted hash method.
+    *token* is the username and password packed in the API key field
+    (``pack_credentials``). The account must be an admin: only an admin can
+    create users and set their libraries.
     """
     try:
-        import hashlib
-        import random
-        import string
+        from app.services.media.client_base import unpack_credentials
 
-        # Build Subsonic API authentication parameters
-        params = {
-            "u": "admin",  # Default username for API access
-            "v": "1.16.1",  # Supported API version
-            "c": "wizarr",  # Client identifier
-            "f": "json",  # Response format
-        }
+        try:
+            username, password = unpack_credentials(token)
+        except ValueError:
+            return False, _("Enter the Navidrome admin username and password.")
 
-        if token:
-            # Generate random salt for secure authentication
-            salt = "".join(random.choices(string.ascii_letters + string.digits, k=6))
-
-            # Create SHA-256 hash of password + salt (prefer strong hash if supported by Navidrome/Subsonic API)
-            token_hash = hashlib.sha256((token + salt).encode()).hexdigest()
-
-            params.update(
-                {
-                    "t": token_hash,
-                    "s": salt,
-                }
-            )
-        else:
-            # If no token provided, try without authentication (some endpoints allow this)
-            params["p"] = ""
-
-        resp = requests.get(f"{url.rstrip('/')}/rest/ping", params=params, timeout=10)
+        resp = requests.post(
+            f"{url.rstrip('/')}/auth/login",
+            json={"username": username, "password": password},
+            timeout=10,
+        )
+        if resp.status_code == 401:
+            return False, _("Navidrome refused that username and password.")
         if resp.status_code != 200:
             raise ServerResponseError(resp.status_code, resp.url)
-
-        # Check for Subsonic API errors in response
-        data = resp.json()
-        subsonic_response = data.get("subsonic-response", {})
-        if subsonic_response.get("status") != "ok":
-            error = subsonic_response.get("error", {})
-            raise ValueError(
-                f"Navidrome API error: {error.get('message', 'Unknown error')}"
-            )
-
+        if not resp.json().get("isAdmin"):
+            return False, _("That Navidrome account is not an admin.")
         return True, ""
     except Exception as e:
         return handle_connection_error(e, _("Navidrome"))
