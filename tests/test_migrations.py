@@ -214,6 +214,10 @@ def test_invite_creator_text_becomes_an_account_link(migration_app, temp_db):
         }
 
 
+# The revision that joins the fork's migrations with upstream's; each merge moves it.
+MERGED_HEAD = "20261012_merge_heads"
+
+
 @pytest.mark.parametrize(
     "start", ["20261009_invite_people", "20260903_pushover"], ids=["fork", "upstream"]
 )
@@ -241,7 +245,7 @@ def test_either_branch_upgrades_to_the_merged_head(migration_app, temp_db, start
                     text("PRAGMA table_info(ombi_connection)")
                 )
             }
-        assert version == "20261011_merge_upstream"
+        assert version == MERGED_HEAD
         assert {"invitation_person", "email_code", "invitation_progress"} <= tables
         assert "provision_plex_users" in connection_cols
 
