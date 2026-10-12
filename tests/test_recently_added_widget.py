@@ -5,7 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from app.models import Library, MediaServer
+from flask import session as flask_session
+
+from app.models import Invitation, Library, MediaServer
 from app.services.media.audiobookshelf import AudiobookshelfClient
 from app.services.media.jellyfin import JellyfinClient
 from app.services.media.komga import KomgaClient
@@ -298,7 +300,14 @@ def test_widget_library_names_allow_all_without_a_library_list(session):
 
 
 def test_widget_passes_libraries_and_limit_to_the_client(session):
-    server = _server_with_libraries(session, [("Movies", True)])
+    # The widget shows an invitee their invite's server, so the guide runs for one.
+    # A guide's libraries argument narrows what the invite grants, it never adds to it.
+    server = _server_with_libraries(session, [("Movies", True), ("TV Shows", True)])
+    invitation = Invitation(code="WIDGETINV1")
+    invitation.servers.append(server)
+    session.add(invitation)
+    session.commit()
+    flask_session["wizard_access"] = invitation.code
     media_client = MagicMock()
     media_client.get_recent_items.return_value = [
         {"title": "Dune", "thumb": "/image-proxy?dune"}
