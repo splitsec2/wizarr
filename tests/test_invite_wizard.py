@@ -101,4 +101,4 @@ def test_a_shared_invite_is_called_multi_use(client, session):
     html = _dialog(client)
     assert "Multi-use invite" in html
     assert "Unlimited Usages" not in html
-    assert "Leave How many people empty for no limit (not recommended)." in html
+    assert "Leave How many people empty for no limit, which is not recommended." in html
