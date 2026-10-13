@@ -48,15 +48,29 @@ def test_picked_libraries_are_granted(session):
     assert _grant(server.id, invite) == ("u1", ["lib0", "lib1"], True)
 
 
-def test_every_library_picked_means_all(session):
+def test_every_library_picked_is_listed_out(session):
     server, libs = _abs_server(session)
-    assert _grant(server.id, SimpleNamespace(libraries=libs))[1] == []
+    ids = _grant(server.id, SimpleNamespace(libraries=libs))[1]
+    assert ids == ["lib0", "lib1", "lib2"]
 
 
-def test_no_pick_on_this_server_means_all(session):
-    server, _libs = _abs_server(session)
+def test_no_pick_on_this_server_lists_the_enabled_libraries(session):
+    server, libs = _abs_server(session)
+    session.add(
+        Library(external_id="off", name="Off", server_id=server.id, enabled=False)
+    )
+    session.commit()
     other = Library(external_id="plexlib", name="Movies", server_id=server.id + 99)
-    assert _grant(server.id, SimpleNamespace(libraries=[other]))[1] == []
+    expected = ["lib0", "lib1", "lib2"]
+    assert _grant(server.id, SimpleNamespace(libraries=[other]))[1] == expected
+    assert _grant(server.id, SimpleNamespace(libraries=[]))[1] == expected
+
+
+def test_no_enabled_library_grants_none(session):
+    server, libs = _abs_server(session)
+    for lib in libs:
+        lib.enabled = False
+    session.commit()
     assert _grant(server.id, SimpleNamespace(libraries=[]))[1] == []
 
 
@@ -109,3 +123,54 @@ def test_password_step_grants_the_invite_libraries(client, session):
     assert response.status_code == 302
     assert abs_client.created == ("listener", "listener@example.com", True)
     assert abs_client.granted == ("abs-user-1", "ABSLIBS1", True)
+
+
+class _Http:
+    """Just enough of the ABS client for the two permission writers."""
+
+    API_PREFIX = "/api"
+
+    def __init__(self, server_id, user):
+        self.server_id = server_id
+        self.user = user
+        self.sent: dict[str, Any] = {}
+
+    def get(self, url):
+        return SimpleNamespace(
+            raise_for_status=lambda: None, json=lambda: self.user, status_code=200
+        )
+
+    def get_user(self, user_id):
+        return self.user
+
+    def update_user(self, user_id, patch):
+        self.sent = patch
+
+    def patch(self, url, json):
+        self.sent = json
+        return SimpleNamespace(status_code=200)
+
+
+def test_the_account_never_gets_the_access_all_flag(session):
+    """ABS' own all-libraries flag also covers a library added later."""
+    server, _libs = _abs_server(session)
+    http = _Http(server.id, {"permissions": {"accessAllLibraries": True}})
+    AudiobookshelfClient._set_specific_libraries(cast(Any, http), "u1", ["lib0"])
+    assert http.sent["permissions"]["accessAllLibraries"] is False
+    assert http.sent["librariesAccessible"] == ["lib0"]
+
+
+def test_an_empty_list_means_no_libraries_not_all(session):
+    server, _libs = _abs_server(session)
+    http = _Http(server.id, {"permissions": {}})
+    AudiobookshelfClient._set_specific_libraries(cast(Any, http), "u1", [])
+    assert http.sent["permissions"]["accessAllLibraries"] is False
+    assert http.sent["librariesAccessible"] == []
+
+
+def test_updating_to_all_lists_the_enabled_libraries(session):
+    server, _libs = _abs_server(session)
+    http = _Http(server.id, {"permissions": {"accessAllLibraries": True}})
+    assert AudiobookshelfClient.update_user_libraries(cast(Any, http), "u1", None)
+    assert http.sent["permissions"]["accessAllLibraries"] is False
+    assert http.sent["librariesAccessible"] == ["lib0", "lib1", "lib2"]
