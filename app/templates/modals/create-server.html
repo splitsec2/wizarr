@@ -68,7 +68,9 @@
                      class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white">
             </div>
             {% include "modals/_server_invitee_notes.html" %}
-            <div id="api-key-div">
+            <div id="api-key-div"
+                 {% if typed.server_type in credential_server_types() %}
+                   style="display:none;"{% endif %}>
               <label for="api_key"
                      class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">API Key</label>
               <input type="text"
@@ -131,7 +133,9 @@
                 </label>
               </div>
             </div>
-            <div id="credential-options" style="display:none;">
+            <div id="credential-options"
+                 {% if typed.server_type not in credential_server_types() %}
+                   style="display:none;"{% endif %}>
               <div>
                 <label for="server_username"
                        class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Username") }}</label>
