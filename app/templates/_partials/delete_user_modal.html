@@ -65,6 +65,33 @@
           </label>
         {% endfor %}
       </div>
+      {% if invitation_offers %}
+        <!-- The invitation the person joined with -->
+        <div class="mb-4 space-y-2" id="invitation-offers">
+          {% for invitation, holders in invitation_offers %}
+            <label class="flex items-start p-3 border border-gray-200 rounded-lg dark:border-gray-600 cursor-pointer">
+              <input type="checkbox"
+                     name="delete_invitations"
+                     value="{{ invitation.id }}"
+                     data-accounts="{{ holders|join(',') }}"
+                     {% if not invitation.unlimited %}checked{% endif %}
+                     class="mt-0.5 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600">
+              <div class="ml-3">
+                <div class="text-sm font-medium text-gray-900 dark:text-white">
+                  {{ _("Also delete the invitation %(code)s", code=invitation.code) }}
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                  {% if invitation.unlimited %}
+                    {{ _("Anyone who has not joined yet could no longer use its link.") }}
+                  {% else %}
+                    {{ _("It has been used and no longer does anything.") }}
+                  {% endif %}
+                </div>
+              </div>
+            </label>
+          {% endfor %}
+        </div>
+      {% endif %}
       <!-- Select all checkbox -->
       <div class="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900 dark:border-red-700">
         <label class="flex items-center cursor-pointer">
@@ -218,5 +245,30 @@
 
         // Initial state
         updateSubmitButton();
+    })();
+
+</script>
+<script>
+    // An invitation can only be deleted once every account that joined with it
+    // is being removed, so the box is on offer only then.
+    (function() {
+        const offers = document.querySelectorAll('input[name="delete_invitations"]');
+        const accounts = document.querySelectorAll('input[name="server_accounts"]');
+        function sync() {
+            const picked = new Set(
+                Array.from(accounts).filter(cb => cb.checked).map(cb => cb.value)
+            );
+            offers.forEach(box => {
+                const needed = box.dataset.accounts.split(',');
+                const all = needed.every(id => picked.has(id));
+                box.disabled = !all;
+                box.title = all ? '' : {{ _("Remove all of its accounts to delete the invitation too.") | tojson }};
+                box.closest('label').classList.toggle('opacity-50', !all);
+            });
+        }
+        accounts.forEach(cb => cb.addEventListener('change', sync));
+        const all = document.getElementById('select_all_servers');
+        if (all) all.addEventListener('change', sync);
+        sync();
     })();
 </script>
