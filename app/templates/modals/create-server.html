@@ -131,10 +131,10 @@
                 </label>
               </div>
             </div>
-            <div id="romm-options" style="display:none;">
+            <div id="credential-options" style="display:none;">
               <div>
                 <label for="server_username"
-                       class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">RomM Username</label>
+                       class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Username") }}</label>
                 <input type="text"
                        name="server_username"
                        id="server_username"
@@ -144,7 +144,7 @@
               </div>
               <div>
                 <label for="server_password"
-                       class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">RomM Password</label>
+                       class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Password") }}</label>
                 {# Do not echo the password back into the page. #}
                 <input type="password"
                        name="server_password"
@@ -225,8 +225,11 @@
             hideUsersOption.style.display = type === 'jellyfin' ? 'block' : 'none';
         }
 
-        document.getElementById('romm-options').style.display = type === 'romm' ? 'block' : 'none';
-        document.getElementById('api-key-div').style.display = type === 'romm' ? 'none' : 'block';
+        // A server type that signs in with a username and password shows those fields, not an API key
+        const credentialTypes = {{ credential_server_types()|tojson }};
+        const takesCredentials = credentialTypes.includes(type);
+        document.getElementById('credential-options').style.display = takesCredentials ? 'block' : 'none';
+        document.getElementById('api-key-div').style.display = takesCredentials ? 'none' : 'block';
     }
     document.getElementById('server_type').addEventListener('change', updateOptions);
     updateOptions();
