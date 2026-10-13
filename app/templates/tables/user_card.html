@@ -74,6 +74,8 @@
                             <span class="text-green-600 dark:text-green-400">{{ name }} ✓</span>
                           {% elif state == "skipped" %}
                             <span>{{ name }} ({{ _("skipped") }})</span>
+                          {% elif state == "failed" %}
+                            <span class="text-red-600 dark:text-red-400">{{ name }} ({{ _("failed") }})</span>
                           {% else %}
                             <span>{{ name }} ({{ _("to do") }})</span>
                           {% endif %}

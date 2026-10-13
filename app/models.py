@@ -262,7 +262,7 @@ class User(db.Model, UserMixin):
 
     def invite_setup(self) -> list[tuple[str, str]]:
         """Each service on the checklist invite this account joined with, and
-        whether it was set up ("done"), "skipped" or is still "todo"."""
+        whether it was set up ("done"), "skipped", "failed" on its last try or still "todo"."""
         from app.services import invite_steps
 
         invitation = self._joined_invitation()
@@ -275,7 +275,11 @@ class User(db.Model, UserMixin):
         )
         states = invite_steps.server_states(invitation, person)
         return [
-            (step.name, invite_steps.state_of(step, states) or "todo")
+            (
+                step.name,
+                invite_steps.state_of(step, states)
+                or ("failed" if invite_steps.step_failed(step, states) else "todo"),
+            )
             for step in invite_steps.steps_for(invitation)
         ]
 
