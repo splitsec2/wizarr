@@ -8,8 +8,9 @@ with the strong policy if any of them asks for it. Each step can be done or
 skipped, and progress is stored against the invitation, so the same link picks
 up where the person left off on any device.
 
-A single-use invite opens the checklist when it has both kinds of step, or
-when a server needs the strong password check (only the account step runs it);
+A single-use invite opens the checklist when it has both kinds of step, when a
+server needs the strong password check (only the account step runs it), or when
+its one account step asks for an email and Settings > Email can send the code;
 its progress belongs to the invite. A shared (unlimited) invite opens it once
 Settings > Email is set up: each person proves their email with a code and
 their progress is kept under that address. Any email the account step uses is
@@ -94,6 +95,13 @@ def multi_use(invitation: Invitation) -> bool:
     return bool(invitation.unlimited)
 
 
+def _email_to_prove(steps: list[Step], mailer) -> bool:
+    """An account step that asks for an email, with mail set up to check it."""
+    return mailer.is_configured() and any(
+        step.is_account and "email" in step.fields for step in steps
+    )
+
+
 def uses_steps(invitation: Invitation) -> bool:
     """Whether this invite opens the checklist rather than a combined sign-up."""
     from app.services import mailer
@@ -106,7 +114,13 @@ def uses_steps(invitation: Invitation) -> bool:
         # People on a shared invite are told apart by an emailed code.
         if not steps or not mailer.is_configured():
             return False
-    elif len(steps) < 2 and not any(step.strong_password for step in steps):
+    elif (
+        len(steps) < 2
+        and not any(step.strong_password for step in steps)
+        and not _email_to_prove(steps, mailer)
+    ):
+        # One service with nothing to check keeps the plain sign-up. An account
+        # form that takes an email does not, when mail can send the code.
         return False
     if invitation.create_ldap_user is True:
         return not InvitationLDAPHandler(invitation).should_create_ldap_user()
