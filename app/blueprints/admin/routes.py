@@ -1246,8 +1246,10 @@ def switch_users():
     results = switch_accounts(ids, on=on)
     problems = [r for r in results if r.outcome not in (DONE, "already")]
     if not problems:
+        # The page shows its overlay for any swap into the dialog area, even an
+        # empty one, so a switch with nothing to say closes it again.
         response = Response("")
-        response.headers["HX-Trigger"] = "refreshUserTable"
+        response.headers["HX-Trigger"] = "refreshUserTable,closeModal"
         return response
     response = make_response(
         render_template("_partials/switch_result_modal.html", problems=problems, on=on)

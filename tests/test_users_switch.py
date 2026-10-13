@@ -91,6 +91,30 @@ def test_switch_off_disables_an_active_account(admin_client, session, remote):
     assert _load(user.id).is_disabled is True
 
 
+def test_a_clean_switch_closes_the_dialog_area(admin_client, session, remote):
+    """The users page shows its grey overlay whenever anything is swapped into
+    the dialog area, so a switch with nothing to say must also close it."""
+    abs_ = _server(session)
+    user = _user(session, abs_)
+
+    resp = _switch(admin_client, "off", user.id)
+
+    assert resp.get_data(as_text=True) == ""
+    triggers = resp.headers["HX-Trigger"]
+    assert "refreshUserTable" in triggers
+    assert "closeModal" in triggers
+
+
+def test_a_switch_with_a_problem_keeps_the_dialog_open(admin_client, session, remote):
+    remote.disable_user.return_value = False
+    abs_ = _server(session)
+    user = _user(session, abs_)
+
+    resp = _switch(admin_client, "off", user.id)
+
+    assert "closeModal" not in resp.headers["HX-Trigger"]
+
+
 def test_switch_off_leaves_an_already_disabled_account_alone(
     admin_client, session, remote
 ):
