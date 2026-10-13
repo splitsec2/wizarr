@@ -1170,6 +1170,43 @@ def remove_user_from_server_endpoint(user_id: int, server_id: int):
     return Response("User or server not found", status=404)
 
 
+def _invitation_offers(accounts) -> list[tuple[Invitation, list[int]]]:
+    """The invitations these accounts joined with that could be deleted too.
+
+    An invitation is offered only when every account that joined with its code
+    is one of *accounts*, so removing them all leaves nobody on it. Returns
+    each invitation with the ids of the accounts that joined with it.
+    """
+    here = {a.id for a in accounts}
+    offers = []
+    for code in sorted(
+        {a.code for a in accounts if a.code and a.code not in _PLACEHOLDER_CODES}
+    ):
+        holders = [u.id for u in User.query.filter_by(code=code).all()]
+        if not holders or not set(holders) <= here:
+            continue
+        invitation = (
+            Invitation.query.filter_by(code=code).order_by(Invitation.id).first()
+        )
+        if invitation:
+            offers.append((invitation, holders))
+    return offers
+
+
+def _delete_ticked_invitations(invitation_ids) -> None:
+    """Delete the invitations the admin ticked, once nobody is left on them."""
+    for raw in invitation_ids:
+        if not raw.isdigit():
+            continue
+        invitation = db.session.get(Invitation, int(raw))
+        if invitation is None or invitation.code in _PLACEHOLDER_CODES:
+            continue
+        if User.query.filter_by(code=invitation.code).count() == 0:
+            # CASCADE handles association-table cleanup
+            db.session.delete(invitation)
+            db.session.commit()
+
+
 @admin_bp.get("/users/<int:user_id>/delete-modal")
 @login_required
 def delete_user_modal(user_id: int):
@@ -1194,6 +1231,7 @@ def delete_user_modal(user_id: int):
         accounts=accounts,
         display_name=display_name,
         user_email=user_email,
+        invitation_offers=_invitation_offers(accounts),
     )
 
 
@@ -1208,6 +1246,7 @@ def process_user_deletion():
 
     # Remove users from their respective servers
     failed = _delete_accounts(int(account_id) for account_id in selected_accounts)
+    _delete_ticked_invitations(request.form.getlist("delete_invitations"))
     if failed:
         return _delete_failed_response(failed)
 
