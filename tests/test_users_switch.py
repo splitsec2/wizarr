@@ -206,6 +206,46 @@ def test_the_users_card_offers_the_switch_for_servers_that_can_disable(
     assert "Switch on" not in html
 
 
+def test_the_switch_shows_a_spinner_and_blocks_a_second_click(
+    admin_client, session, remote
+):
+    """A switch takes a few seconds (server calls), so the button says so."""
+    import re
+
+    abs_ = _server(session)
+    _user(session, abs_)
+
+    html = admin_client.get("/users/table", headers=HX).get_data(as_text=True)
+
+    button = re.search(r"<button[^>]*Switch off\"[^>]*>.*?</button>", html, re.S)
+    assert button
+    markup = button.group(0)
+    assert 'hx-disabled-elt="this"' in markup
+    assert "animate-spin" in markup
+
+
+def test_a_switched_off_account_has_a_struck_through_pill(
+    admin_client, session, remote
+):
+    import re
+
+    abs_ = _server(session)
+    plex = _server(session, "plex", "Plex")
+    _user(session, abs_, disabled=True, name="sam")
+    _user(session, plex, name="pat")
+
+    html = admin_client.get("/users/table", headers=HX).get_data(as_text=True)
+
+    pills = {
+        name: style
+        for style, name in re.findall(
+            r'<span class="[^"]*" style="([^"]*)">(ABS|Plex)</span>', html
+        )
+    }
+    assert "line-through" in pills["ABS"]
+    assert "line-through" not in pills["Plex"]
+
+
 def test_the_card_offers_switch_on_when_every_such_account_is_off(
     admin_client, session, remote
 ):
