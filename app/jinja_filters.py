@@ -119,18 +119,23 @@ def server_type_tag(server_type: str) -> Markup:
     return Markup(html)  # noqa: S704  # User input is escaped, colour from safe dict
 
 
-def server_name_tag(server_type: str, server_name: str) -> Markup:
+def server_name_tag(
+    server_type: str, server_name: str, disabled: bool = False
+) -> Markup:
     """Return a ready-to-use <span> tag with custom text but server_type colours.
 
     Uses the server_type for determining the background colour but displays
-    the server_name as the text content.
+    the server_name as the text content. A disabled account's tag is struck
+    through.
     """
     colour = _server_colour(server_type)
     # Always use black text for better contrast on these pastel backgrounds.
     text = escape(server_name if server_name else "Unknown")
+    # Inline, because Tailwind only builds the classes it finds in templates
+    strike = " text-decoration: line-through; opacity: 0.7;" if disabled else ""
     html = (
         f'<span class="text-xs inline-block font-medium px-2 py-0.5 rounded-lg" '
-        f'style="background-color: {colour}; color: #000;">{text}</span>'
+        f'style="background-color: {colour}; color: #000;{strike}">{text}</span>'
     )
     return Markup(html)  # noqa: S704  # User input is escaped, colour from safe dict
 
