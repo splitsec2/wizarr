@@ -1,5 +1,3 @@
-import base64
-
 from flask import (
     Blueprint,
     flash,
@@ -28,6 +26,7 @@ from app.models import (
     invitation_servers,
     invitation_users,
 )
+from app.services.media.client_base import credentials_api_key
 from app.services.media.service import (
     HEALTH_TIMEOUT,
     check_server_connection,
@@ -43,13 +42,10 @@ media_servers_bp = Blueprint("media_servers", __name__, url_prefix="/settings/se
 
 
 def _check_connection(data: dict):
-    if data["server_type"] == "romm":
-        username = data.get("server_username", "").strip()
-        password = data.get("server_password", "").strip()
-        if username and password:
-            data["api_key"] = base64.b64encode(
-                f"{username}:{password}".encode()
-            ).decode()
+    # A server type that signs in with a username and password gets them packed
+    # into the API key, here once for the create and edit forms alike.
+    if key := credentials_api_key(data["server_type"], data):
+        data["api_key"] = key
     return check_server_connection(
         data["server_type"], data["server_url"], data.get("api_key") or ""
     )
@@ -80,15 +76,6 @@ def list_servers():
 def create_server():
     if request.method == "POST":
         data = request.form.to_dict()
-
-        # --- RomM: derive API key from credentials ------------------
-        if data.get("server_type") == "romm":
-            username = data.get("server_username", "").strip()
-            password = data.get("server_password", "").strip()
-            if username and password:
-                data["api_key"] = base64.b64encode(
-                    f"{username}:{password}".encode()
-                ).decode()
 
         ok, error_msg = _check_connection(data)
         if not ok:
@@ -187,14 +174,6 @@ def edit_server(server_id):
     server = MediaServer.query.get_or_404(server_id)
     if request.method == "POST":
         data = request.form.to_dict()
-
-        if data.get("server_type") == "romm":
-            username = data.get("server_username", "").strip()
-            password = data.get("server_password", "").strip()
-            if username and password:
-                data["api_key"] = base64.b64encode(
-                    f"{username}:{password}".encode()
-                ).decode()
 
         ok, error_msg = _check_connection(data)
         if not ok:

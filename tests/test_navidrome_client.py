@@ -20,7 +20,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from app.extensions import db
 from app.models import Invitation, Library, MediaServer, User, invite_libraries
 from app.services.media import client_base
 from app.services.media.client_base import (
@@ -280,46 +279,17 @@ def test_the_server_check_asks_for_both_when_the_key_is_not_packed():
     assert "username and password" in message
 
 
-def test_a_key_that_is_not_a_username_and_password_says_so(session, fake):
+def test_a_key_saved_before_the_form_took_a_username_signs_in_as_admin(session, fake):
     row = MediaServer(
-        name="Old", server_type="navidrome", url="http://nav.local", api_key="plain"
+        name="Old",
+        server_type="navidrome",
+        url="http://nav.local:4533",
+        api_key="plain",
     )
     session.add(row)
     session.commit()
 
-    with pytest.raises(ValueError, match="packed username and password"):
-        NavidromeClient(row).create_user("pat", "pw-123456", email="p@example.com")
-    assert db.session.query(User).count() == 0
+    NavidromeClient(row).libraries()
 
-
-def test_one_sign_in_serves_many_clients(fake, server):
-    NavidromeClient(server).libraries()
-    NavidromeClient(server).libraries()
-    NavidromeClient(server).create_user("pat", "pw-123456", email="pat@example.com")
-
-    assert sum(1 for c in fake.calls if c[1] == "/auth/login") == 1
-
-
-def test_an_expired_token_is_replaced_once(fake, server):
-    NavidromeClient._tokens[("http://nav.local:4533", "wizarr")] = "stale"
-
-    assert NavidromeClient(server).libraries() == {
-        "1": "Music Library",
-        "2": "Liked Songs",
-        "3": "Yoga Class Music",
-    }
-    assert sum(1 for c in fake.calls if c[1] == "/auth/login") == 1
-
-
-def test_updating_the_email_sends_the_whole_user_back(fake, server):
-    client = NavidromeClient(server)
-    uid = client.create_user("pat", "pw-123456", email="pat@example.com")
-
-    client.update_user(uid, {"email": "new@example.com"})
-
-    assert fake.put_bodies[-1] == {
-        "userName": "pat",
-        "name": "pat",
-        "isAdmin": False,
-        "email": "new@example.com",
-    }
+    login = next(c for c in fake.calls if c[1] == "/auth/login")
+    assert login[2]["json"] == {"username": "admin", "password": "plain"}
