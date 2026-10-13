@@ -296,6 +296,41 @@
                       </svg>
                     </button>
                   {% endif %}
+                  {# The power button: the accounts on servers that can disable #}
+                  {% set sw = namespace(ids=[], active=0) %}
+                  {% for a in accs %}
+                    {% if a.server and server_supports_disable(a.server.server_type) %}
+                      {% set sw.ids = sw.ids + [a.id|string] %}
+                      {% if not a.is_disabled %}
+                        {% set sw.active = sw.active + 1 %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                  {% if sw.ids %}
+                    {% set switch_state = "off" if sw.active else "on" %}
+                    <button class="h-8 w-8 p-0 inline-flex items-center justify-center
+                                   {% if switch_state == 'off' %}text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400{% else %}text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300{% endif %}
+                                   rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            type="button"
+                            hx-post="{{ url_for('admin.switch_users') }}"
+                            hx-vals='{{ {"state": switch_state, "uids": sw.ids}|tojson }}'
+                            hx-target="#modal-user"
+                            hx-swap="innerHTML"
+                            onclick="event.stopPropagation();"
+                            title="{% if switch_state == 'off' %}{{ _('Switch off') }}{% else %}{{ _('Switch on') }}{% endif %}">
+                      <svg class="h-4 w-4"
+                           fill="none"
+                           stroke="currentColor"
+                           stroke-width="2"
+                           stroke-linecap="round"
+                           stroke-linejoin="round"
+                           viewBox="0 0 24 24"
+                           xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2v10" />
+                        <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
+                      </svg>
+                    </button>
+                  {% endif %}
                   <!-- Delete user -->
                   <button class="h-8 w-8 p-0 inline-flex items-center justify-center text-white bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 rounded-md transition-colors"
                           hx-get="{{ url_for('admin.delete_user_modal', user_id=user.id) }}"
