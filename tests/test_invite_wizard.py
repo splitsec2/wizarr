@@ -45,10 +45,23 @@ def test_the_dialog_has_four_steps_in_order(client, session):
     def at(needle):
         return html.index(needle)
 
-    assert at('id="unlimited"') < at('id="invitee_name"') < at('id="server-grid"')
-    assert at('id="server-grid"') < at('id="expires"') < at('id="duration"')
-    assert at('id="duration"') < at('id="invite-review"') < at('id="code"')
+    # who, then how long, then what they get, then review
+    assert at('id="unlimited"') < at('id="invitee_name"') < at('id="expires"')
+    assert at('id="expires"') < at('id="duration"') < at('id="access_ends_on"')
+    assert at('id="access_ends_on"') < at('id="server-grid"') < at('id="invite-review"')
+    assert at('id="invite-review"') < at('id="code"')
     assert "Advanced Options" not in html
+
+
+def test_the_access_fields_say_what_they_count_from(client, session):
+    _admin_with_servers(client, session)
+    html = " ".join(_dialog(client).split())
+    assert "Access lasts (days after they join)" in html
+    assert "Access ends on (one date for everyone)" in html
+    assert "End date for this server only" in html
+    assert "Replaces the access end from the previous step" in html
+    # the (?) popover that did nothing is gone
+    assert "popover" not in html
 
 
 def test_no_server_is_ticked_when_the_dialog_opens(client, session):
