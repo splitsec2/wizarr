@@ -232,8 +232,10 @@ def scan_libraries():
     db.session.commit()
 
     # 4) render checkboxes off our Library.enabled
-    all_libs = Library.query.order_by(Library.name).all()
-    return render_template("partials/library_checkboxes.html", libs=all_libs)
+    # Only what this scan found. The server is not saved yet, and the rows of
+    # the other servers have nothing to do with it.
+    scanned = Library.query.filter_by(server_id=None).order_by(Library.name).all()
+    return render_template("partials/library_checkboxes.html", libs=scanned)
 
 
 @settings_bp.route("/general", methods=["GET", "POST"])
