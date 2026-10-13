@@ -816,6 +816,12 @@ class MediaClient(ABC):
         # Send notification on successful join
         if success:
             try:
+                from app.services.protected import clear_expiry_if_protected
+
+                clear_expiry_if_protected(email, code, getattr(self, "server_id", None))
+            except Exception as e:
+                logging.warning(f"Failed to check the protected list: {e}")
+            try:
                 notify(
                     "New User",
                     f"User {username} has joined your server! 🎉",
