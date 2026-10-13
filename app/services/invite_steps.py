@@ -34,6 +34,7 @@ from app.services.media.client_base import capabilities_for, join_fields_for
 
 DONE = "done"
 SKIPPED = "skipped"
+FAILED = "failed"
 PLEX_STEP = "plex"
 ACCOUNT_STEP = "account"
 SINGLE_PERSON = ""
@@ -178,12 +179,20 @@ def server_states(
 def state_of(step: Step, states: dict[int, str]) -> str | None:
     """Done when every server on the step is done; skipped when the rest of
     it was skipped; otherwise still to do."""
-    found = [states.get(s.id) for s in step.servers]
+    # A failed server is still to do for the invitee; only the admin cards say failed.
+    found = [
+        None if states.get(s.id) == FAILED else states.get(s.id) for s in step.servers
+    ]
     if all(state == DONE for state in found):
         return DONE
     if None not in found:
         return SKIPPED
     return None
+
+
+def step_failed(step: Step, states: dict[int, str]) -> bool:
+    """Whether a server on this step failed its last try and is not done since."""
+    return any(states.get(server.id) == FAILED for server in step.servers)
 
 
 def joined(
@@ -216,7 +225,7 @@ def record_server(
     *,
     person: str = SINGLE_PERSON,
 ) -> None:
-    """Mark one server done or skipped for this person. Done is final."""
+    """Mark one server done, skipped or failed for this person. Done is final."""
     row = InvitationProgress.query.filter_by(
         invitation_id=invitation.id, server_id=server.id, person=person
     ).first()

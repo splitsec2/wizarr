@@ -391,3 +391,101 @@ def test_users_show_how_far_their_invite_got(client, plex_abs, fake_plex):
 
 def test_accounts_from_ordinary_invites_show_no_setup(session):
     assert User(username="x", code=None).invite_setup() == []
+
+
+# ── a join that fails is shown as failed ───────────────────────────────────
+
+
+class _FailingClient:
+    def __init__(self, server):
+        self.server = server
+
+    def join(self, *_args, **_kwargs):
+        return False, "refused"
+
+
+@pytest.fixture
+def failing_media(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.invitation_flow.workflows.get_client_for_media_server",
+        lambda server: _FailingClient(server),
+    )
+
+
+def _post_account(client):
+    return client.post(
+        "/j/STEPS123/steps/account",
+        data={
+            "code": "STEPS123",
+            "username": "listener",
+            "email": "listener@example.com",
+            "password": "Password123",
+            "confirm_password": "Password123",
+        },
+    )
+
+
+def test_a_failed_join_is_recorded_as_failed(client, plex_abs, failing_media):
+    invitation, _plex, abs_server = plex_abs
+    _verified(client, "STEPS123", "listener@example.com")
+
+    resp = _post_account(client)
+
+    assert resp.status_code == 200
+    assert "could not be set up" in resp.get_data(as_text=True)
+    assert _states(invitation) == {abs_server.id: "failed"}
+
+
+def test_a_failed_step_is_still_to_do_for_the_invitee(client, plex_abs, failing_media):
+    invitation, _plex, abs_server = plex_abs
+    _verified(client, "STEPS123", "listener@example.com")
+    _post_account(client)
+
+    steps = invite_steps.steps_for(invitation)
+    states = invite_steps.server_states(invitation)
+    account = next(s for s in steps if s.is_account)
+    assert invite_steps.state_of(account, states) is None
+    page = client.get("/j/STEPS123/steps").get_data(as_text=True)
+    assert "Nothing is set up yet" not in page
+    assert "You're all set" not in page
+
+
+def test_a_retry_that_works_replaces_the_failure(
+    client, plex_abs, failing_media, monkeypatch
+):
+    invitation, _plex, abs_server = plex_abs
+    _verified(client, "STEPS123", "listener@example.com")
+    _post_account(client)
+    monkeypatch.setattr(
+        "app.services.invitation_flow.workflows.get_client_for_media_server",
+        lambda server: _Client(server),
+    )
+
+    _post_account(client)
+
+    assert _states(invitation) == {abs_server.id: "done"}
+
+
+def test_the_invite_card_and_the_users_card_say_failed(client, plex_abs, failing_media):
+    _invitation, plex, abs_server = plex_abs
+    db.session.add(
+        User(
+            token="plex-tok",
+            username="plexsam",
+            email="sam@example.com",
+            code="STEPS123",
+            server_id=plex.id,
+        )
+    )
+    db.session.commit()
+    _verified(client, "STEPS123", "listener@example.com")
+    _post_account(client)
+    admin_client = client.application.test_client()
+    admin_client.post("/login", data={"username": "admin", "password": "password"})
+    hx = {"HX-Request": "true"}
+
+    users = admin_client.get("/users/table", headers=hx).get_data(as_text=True)
+    invites = admin_client.post("/invite/table", headers=hx).get_data(as_text=True)
+
+    assert "AudioBookShelf (failed)" in users
+    assert "failed to set up" in invites

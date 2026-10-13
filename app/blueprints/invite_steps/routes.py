@@ -209,6 +209,9 @@ def _plex_step(invitation, step):
         current_app.logger.error(
             "Plex step failed for invite %s: %s", invitation.code, exc
         )
+        invite_steps.record(
+            invitation, step, invite_steps.FAILED, person=_person(invitation)
+        )
         return _plex_page(
             invitation,
             step,
@@ -305,6 +308,10 @@ def _account_step(invitation, step):
             for result in succeeded:
                 invite_steps.record_server(
                     invitation, result.server, invite_steps.DONE, person=person
+                )
+            for result in server_failed:
+                invite_steps.record_server(
+                    invitation, result.server, invite_steps.FAILED, person=person
                 )
             failed += server_failed
     if failed:
