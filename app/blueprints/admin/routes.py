@@ -9,6 +9,7 @@ from flask import (
     Blueprint,
     Response,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -1176,6 +1177,35 @@ def process_user_deletion():
     # Trigger user table refresh
     response = Response("")
     response.headers["HX-Trigger"] = "refreshUserTable,closeModal"
+    return response
+
+
+@admin_bp.post("/users/switch")
+@login_required
+def switch_users():
+    """Switch accounts off or on, on the servers that can disable them.
+
+    Answers with a short result dialog only when something did not go through
+    (a failed server call, an account whose expiry has passed, a server that
+    cannot disable). When every account switched, the user table just refreshes.
+    """
+    from app.services.user_switch import DONE, switch_accounts
+
+    on = request.form.get("state") == "on"
+    ids = [int(i) for i in request.form.getlist("uids") if i.isdigit()]
+    if not ids:
+        return Response("No accounts selected", status=400)
+
+    results = switch_accounts(ids, on=on)
+    problems = [r for r in results if r.outcome not in (DONE, "already")]
+    if not problems:
+        response = Response("")
+        response.headers["HX-Trigger"] = "refreshUserTable"
+        return response
+    response = make_response(
+        render_template("_partials/switch_result_modal.html", problems=problems, on=on)
+    )
+    response.headers["HX-Trigger"] = "refreshUserTable"
     return response
 
 
