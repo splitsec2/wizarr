@@ -26,6 +26,16 @@ if TYPE_CHECKING:
     from app.services.media.user_details import MediaUserDetails
 
 
+def _enabled_library_ids(server_id) -> list[str]:
+    """External ids of the libraries the admin has enabled on this server."""
+    return [
+        str(lib.external_id)
+        for lib in Library.query.filter_by(enabled=True, server_id=server_id)
+        .order_by(Library.id)
+        .all()
+    ]
+
+
 @register_media_client("audiobookshelf")
 class AudiobookshelfClient(RestApiMixin):
     """Very small wrapper around the Audiobookshelf REST API."""
@@ -549,7 +559,8 @@ class AudiobookshelfClient(RestApiMixin):
 
         Args:
             _user_identifier: User's Audiobookshelf ID (external_id from database)
-            _library_names: List of library names to grant access to, or None for all libraries
+            _library_names: List of library names to grant access to, or None for
+                every library enabled on this server (listed out, not the all flag)
 
         Returns:
             bool: True if successful, False otherwise
@@ -588,18 +599,21 @@ class AudiobookshelfClient(RestApiMixin):
 
                 logging.info(f"AUDIOBOOKSHELF: Converted to library IDs: {library_ids}")
             else:
-                # None means all libraries
-                logging.info("AUDIOBOOKSHELF: Granting access to all libraries")
+                # None means every enabled library, listed out so a library
+                # added later is not shared by default.
+                library_ids = _enabled_library_ids(self.server_id)
+                logging.info(
+                    "AUDIOBOOKSHELF: Granting access to the enabled libraries %s",
+                    library_ids,
+                )
 
             # Update permissions with library access settings
-            current_perms["accessAllLibraries"] = _library_names is None
+            current_perms["accessAllLibraries"] = False
 
             # Prepare payload
             payload = {
                 "permissions": current_perms,
-                "librariesAccessible": library_ids
-                if _library_names is not None
-                else [],
+                "librariesAccessible": library_ids,
             }
 
             # Update user
@@ -740,9 +754,11 @@ class AudiobookshelfClient(RestApiMixin):
     ) -> None:
         """Give *user_id* the invitation's libraries on this server.
 
-        All libraries when the invite picks none here or picks every one.
-        Every path that creates an Audiobookshelf account for an invite uses
-        this, so none of them leaves the account without libraries.
+        The libraries the invite picks here, or the enabled ones when it picks
+        none. Always an explicit list, so a library added to the server later
+        is not shared until an admin chooses it. Every path that creates an
+        Audiobookshelf account for an invite uses this, so none of them leaves
+        the account without libraries.
         """
         server_id = getattr(self, "server_id", None)
         selected = [
@@ -750,17 +766,19 @@ class AudiobookshelfClient(RestApiMixin):
             for lib in (getattr(invitation, "libraries", None) or [])
             if lib.server_id == server_id
         ]
-        total = Library.query.filter_by(enabled=True, server_id=server_id).count()
         lib_ids = (
-            []
-            if not selected or len(selected) == total
-            else [lib.external_id for lib in selected]
+            [str(lib.external_id) for lib in selected]
+            if selected
+            else _enabled_library_ids(server_id)
         )
-        logging.info(
-            "ABS: granting user %s %s",
-            user_id,
-            f"libraries {lib_ids}" if lib_ids else "all libraries",
-        )
+        if not lib_ids:
+            logging.warning(
+                "ABS: user %s gets no libraries: none are enabled on server %s "
+                "(scan libraries and choose some)",
+                user_id,
+                server_id,
+            )
+        logging.info("ABS: granting user %s libraries %s", user_id, lib_ids)
         self._set_specific_libraries(user_id, lib_ids, allow_downloads)
 
     def _set_specific_libraries(
@@ -768,8 +786,9 @@ class AudiobookshelfClient(RestApiMixin):
     ):
         """Restrict the given *user* to the supplied library IDs.
 
-        If *library_ids* is empty, the account will be granted access to all
-        libraries (ABS default behaviour).
+        The list is explicit: an empty one means no libraries, never all.
+        Audiobookshelf's own all-libraries flag is not used, because it also
+        covers a library added later.
         """
         # Fetch current user object from API so that we do not accidentally wipe other fields
         # NOTE: Must use API call here, not database lookup, because this is called during
@@ -783,13 +802,13 @@ class AudiobookshelfClient(RestApiMixin):
             return
 
         perms = current.get("permissions", {}) or {}
-        perms["accessAllLibraries"] = not library_ids
+        perms["accessAllLibraries"] = False
         perms["download"] = allow_downloads
 
         patch = {
             "permissions": perms,
             # Root-level list of library IDs that the user may access
-            "librariesAccessible": library_ids if library_ids else [],
+            "librariesAccessible": list(library_ids),
             # Update user type based on download permission
             "type": "user" if allow_downloads else "guest",
         }
