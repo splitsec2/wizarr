@@ -93,7 +93,7 @@ def create_server():
         server = MediaServer()
         server.name = data["server_name"]
         server.server_type = data["server_type"]
-        server.url = data["server_url"]
+        server.url = data["server_url"].strip()
         server.api_key = data.get("api_key")
         server.external_url = data.get("external_url")
         server.invitee_notes = (data.get("invitee_notes") or "").strip() or None
@@ -104,22 +104,37 @@ def create_server():
         server.verified = True
         db.session.add(server)
         db.session.commit()
-        # attach chosen libraries
+        # Attach the libraries the admin ticked. Read the server's own list first
+        # so each row carries its real name, not just the id the form posted.
         chosen = request.form.getlist("libraries")
         if chosen:
+            try:
+                items, authoritative = scan_libraries_for_server(server)
+                upsert_scanned_libraries(server, items, authoritative=authoritative)
+                db.session.flush()
+            except Exception as exc:
+                import logging
+
+                logging.warning(
+                    "Could not read the libraries of the new server %s: %s",
+                    server.name,
+                    exc,
+                )
+            have = {
+                lib.external_id: lib
+                for lib in Library.query.filter_by(server_id=server.id).all()
+            }
             for fid in chosen:
-                lib = Library.query.filter_by(
-                    external_id=fid, server_id=server.id
-                ).first()
-                if lib:
-                    lib.enabled = True
-                else:
+                lib = have.get(fid)
+                if lib is None:
                     lib = Library()
                     lib.external_id = fid
                     lib.name = fid
                     lib.server_id = server.id
-                    lib.enabled = True
                     db.session.add(lib)
+                    have[fid] = lib
+            for fid, lib in have.items():
+                lib.enabled = fid in chosen
             db.session.commit()
 
         # A new server can reuse the id of a deleted one. Forget any state
@@ -190,7 +205,7 @@ def edit_server(server_id):
             return resp
         server.name = data["server_name"]
         server.server_type = data["server_type"]
-        server.url = data["server_url"]
+        server.url = data["server_url"].strip()
         server.api_key = data.get("api_key")
         server.external_url = data.get("external_url")
         server.invitee_notes = (data.get("invitee_notes") or "").strip() or None
