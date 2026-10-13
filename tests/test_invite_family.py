@@ -96,7 +96,7 @@ def test_a_shared_invite_keeps_its_limit_and_payer(mail):
 
 def test_limit_and_payer_need_a_shared_invite(mail):
     server = _server()
-    with pytest.raises(ValueError, match="Turn on Unlimited Usages"):
+    with pytest.raises(ValueError, match="Turn on Multi-use invite"):
         create_invite({"server_ids": [str(server.id)], "max_people": "5"})
 
 
