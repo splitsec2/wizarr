@@ -456,3 +456,36 @@ def test_the_avatar_is_one_initial(client, plex_abs, fake_plex):
 
 def test_accounts_from_ordinary_invites_show_no_setup(session):
     assert User(username="x", code=None).invite_setup() == []
+
+
+# ── one-service invites ────────────────────────────────────────────────────
+# A single-use invite for one service that takes an email used to skip the
+# checklist, so nobody proved the address. It opens the checklist when Settings >
+# Email can send the code; with no mail set up (or nothing to prove) it keeps the
+# plain sign-up.
+
+
+@pytest.fixture
+def mail_ready(monkeypatch):
+    monkeypatch.setattr("app.services.mailer.is_configured", lambda: True)
+
+
+@pytest.mark.parametrize(
+    "server_type", ["audiobookshelf", "jellyfin", "provisioning_hook"]
+)
+def test_one_service_invite_opens_the_checklist_when_mail_can_send(
+    setup_done, mail_ready, server_type
+):
+    invitation = _invite(_server("Only", server_type), code="ONLYONE2")
+    assert [s.key for s in invite_steps.steps_for(invitation)] == ["account"]
+    assert invite_steps.uses_steps(invitation)
+
+
+def test_one_service_invite_keeps_the_plain_signup_without_mail(setup_done):
+    invitation = _invite(_server("Only", "audiobookshelf"), code="ONLYONE3")
+    assert not invite_steps.uses_steps(invitation)
+
+
+def test_a_plex_only_invite_still_uses_the_plex_flow(setup_done, mail_ready):
+    invitation = _invite(_server("Plex", "plex"), code="PLEXONE1")
+    assert not invite_steps.uses_steps(invitation)
