@@ -291,15 +291,10 @@ def test_navidrome_single_entry_is_a_list(fake_http):
 
 
 def test_navidrome_statistics_still_works_when_sessions_fail(fake_http):
+    NavidromeClient._tokens.clear()
     fake_http(
-        _Response(
-            {
-                "subsonic-response": {
-                    "status": "ok",
-                    "users": {"user": [{"username": "a"}, {"username": "b"}]},
-                }
-            }
-        ),
+        _Response({"token": "jwt"}),  # sign in to Navidrome's own API
+        _Response([{"userName": "a"}, {"userName": "b"}]),  # its user list
         requests.ConnectionError("refused"),  # now_playing
     )
 
