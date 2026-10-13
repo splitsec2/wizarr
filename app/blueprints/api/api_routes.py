@@ -901,7 +901,7 @@ class LibrariesResource(Resource):
                                     external_id=external_id,
                                     name=name,
                                     server_id=server.id,
-                                    enabled=True,
+                                    enabled=False,
                                 )
                                 db.session.add(library)
 

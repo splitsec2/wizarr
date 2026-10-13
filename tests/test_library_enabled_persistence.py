@@ -114,8 +114,8 @@ def test_server_edit_scan_preserves_disabled_libraries(client, session):
     assert enabled["3"] is False
 
 
-def test_newly_discovered_library_defaults_to_enabled(client, session):
-    """A library that appears for the first time should not be silently withheld."""
+def test_newly_discovered_library_starts_disabled(client, session):
+    """A library nobody has chosen yet is not shared by an untouched picker."""
     _login(client, session)
     server = _server(session)
     _libs(session, server, {"1": ("Movies", True)})
@@ -127,8 +127,9 @@ def test_newly_discovered_library_defaults_to_enabled(client, session):
         client.post("/invite/scan-libraries", data={"server_ids": str(server.id)})
 
     enabled = _enabled_map(server.id)
-    assert enabled["2"] is True
-    assert enabled["3"] is True
+    assert enabled["1"] is True
+    assert enabled["2"] is False
+    assert enabled["3"] is False
 
 
 def test_non_authoritative_scan_leaves_existing_libraries_untouched(client, session):
@@ -189,7 +190,7 @@ def test_equal_count_non_authoritative_scan_does_not_swap_libraries(client, sess
     assert resp.status_code == 200
 
     # "1" survives (unreliable scan), "3" is still added (adds always apply)
-    assert _enabled_map(server.id) == {"1": True, "2": True, "3": True}
+    assert _enabled_map(server.id) == {"1": True, "2": True, "3": False}
 
 
 def test_authoritative_scan_reconciles_a_genuine_removal(client, session):
@@ -256,7 +257,7 @@ def test_malformed_scan_result_does_not_abort_other_servers(client, session):
         )
     assert resp.status_code == 200
 
-    assert _enabled_map(good_server.id) == {"1": True, "2": True, "3": True}
+    assert _enabled_map(good_server.id) == {"1": False, "2": False, "3": False}
 
 
 def test_legacy_settings_scan_does_not_delete_other_servers_libraries(client, session):
@@ -347,13 +348,13 @@ def test_startup_scan_renames_without_re_enabling(session):
     assert lib.enabled is False
 
 
-def test_startup_scan_inserts_new_libraries_enabled(session):
+def test_startup_scan_inserts_new_libraries_disabled(session):
     server = _server(session)
     _libs(session, server, {"1": ("Movies", True)})
 
     _startup_scan(SCAN_RESULT)
 
-    assert _enabled_map(server.id) == {"1": True, "2": True, "3": True}
+    assert _enabled_map(server.id) == {"1": True, "2": False, "3": False}
 
 
 def test_startup_scan_ignores_an_empty_result(session):

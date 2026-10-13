@@ -506,3 +506,38 @@ class TestAPIErrorHandling:
         assert response.status_code == 401
         data = response.get_json()
         assert data["error"] == "Unauthorized"
+
+
+class TestAPILibrariesFirstScan:
+    """The first listing scans every server when no libraries exist yet."""
+
+    def test_libraries_found_by_the_first_scan_start_disabled(
+        self, client, api_key, app
+    ):
+        from unittest.mock import patch
+
+        with app.app_context():
+            Library.query.delete()
+            MediaServer.query.delete()
+            server = MediaServer(
+                name="Test Plex Server",
+                server_type="plex",
+                url="http://localhost:32400",
+                api_key="test_plex_key",
+                verified=True,
+            )
+            db.session.add(server)
+            db.session.commit()
+
+        with patch(
+            "app.services.media.service.scan_libraries_for_server",
+            return_value=({"1": "Movies", "2": "Home Video"}, True),
+        ):
+            response = client.get("/api/libraries", headers={"X-API-Key": api_key})
+        assert response.status_code == 200
+
+        with app.app_context():
+            assert {lib.external_id: lib.enabled for lib in Library.query.all()} == {
+                "1": False,
+                "2": False,
+            }

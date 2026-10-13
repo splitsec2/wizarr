@@ -493,7 +493,7 @@ def upsert_scanned_libraries(
     ``scan_result`` is either a ``{external_id: name}`` dict or a list of names.
     Existing rows keep their primary key (so invites keep referencing them) and
     their ``enabled`` flag, which is the admin's saved default and what the
-    checkbox partial renders from. New libraries are inserted enabled. A library
+    checkbox partial renders from. New libraries are inserted disabled. A library
     that vanished from the scan is disabled if any invitation still references it,
     otherwise deleted, but only when ``authoritative`` is true.
 
@@ -547,7 +547,10 @@ def upsert_scanned_libraries(
                     external_id=fid,
                     name=name,
                     server_id=server.id,
-                    enabled=True,
+                    # Nobody has chosen this library yet. A new library is
+                    # offered unticked, so an invite that never touched the
+                    # picker cannot share it.
+                    enabled=False,
                 )
             )
 
