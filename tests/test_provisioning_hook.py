@@ -98,6 +98,20 @@ def test_join_grants_and_records_the_user(session, hook):
     assert user.expires is not None
 
 
+def test_a_protected_address_joins_without_an_expiry(session, hook):
+    from app.models import Settings
+
+    session.add(Settings(key="protected_emails", value="owner@example.com"))
+    session.commit()
+    server = _server()
+    _invite(server)
+
+    ok, _msg = _client(server).join("", "", "", "Owner@example.com", "BOOKS0001")
+
+    assert ok
+    assert User.query.filter_by(server_id=server.id).one().expires is None
+
+
 def test_header_prefix_is_configurable(session, hook, monkeypatch):
     server = _server()
     _invite(server)
