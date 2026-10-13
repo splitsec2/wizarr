@@ -54,7 +54,7 @@
               <!-- Step 1: who -->
               <section data-wizard-step="0" class="space-y-4">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("Who is this invite for?") }}</h2>
-                <!-- Unlimited Usage -->
+                <!-- Multi-use invite -->
                 <label class="flex items-center cursor-pointer">
                   <input id="unlimited"
                          name="unlimited"
@@ -63,7 +63,7 @@
                          class="sr-only peer">
                   <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
                   </div>
-                  <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Unlimited Usages") }}</span>
+                  <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Multi-use invite") }}</span>
                 </label>
                 <div id="single-fields">
                   <!-- Who the invite is for -->
@@ -110,7 +110,7 @@
                     </div>
                   </div>
                   <p class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ _("Several people share this invite, such as a family: the most people who can join, and the supporter who covers them.") }}
+                    {{ _("Several people share this invite, such as a family: the most people who can join, and the supporter who covers them. Leave How many people empty for no limit (not recommended).") }}
                   </p>
                 </div>
               </section>
@@ -679,8 +679,10 @@
             if (shared) {
                 const people = el("max_people").value;
                 const payer = el("paid_by").value.trim();
-                let who = {{ _("A shared invite") | tojson }};
-                if (people) who += " (" + {{ _("up to") | tojson }} + " " + people + ")";
+                let who = {{ _("A multi-use invite") | tojson }};
+                who += people
+                    ? " (" + {{ _("up to") | tojson }} + " " + people + ")"
+                    : " (" + {{ _("no limit") | tojson }} + ")";
                 if (payer) who += ", " + {{ _("Supporter") | tojson }} + ": " + payer;
                 rows.push([{{ _("Who") | tojson }}, who]);
             } else {
