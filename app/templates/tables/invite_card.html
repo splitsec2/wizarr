@@ -207,6 +207,8 @@
                               <span class="text-green-600 dark:text-green-400">✓ {{ _("set up") }}</span>
                             {% elif step_state == "skipped" %}
                               <span class="text-gray-500 dark:text-gray-400">{{ _("skipped") }}</span>
+                            {% elif step_state == "failed" %}
+                              <span class="text-red-600 dark:text-red-400">✗ {{ _("failed to set up") }}</span>
                             {% endif %}
                             :
                             {% if invite.server_library_map.get(srv.id) %}
