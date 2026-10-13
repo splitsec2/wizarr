@@ -101,22 +101,23 @@ def test_editing_a_navidrome_server_keeps_its_type(client, session):
 
     # Patch the HTTP call, not an import: where the Navidrome check is imported
     # from changes with the route's wiring, the ping request does not.
-    ok = Mock(status_code=200, url="http://navidrome.local:4533/rest/ping")
-    ok.json.return_value = {"subsonic-response": {"status": "ok"}}
-    with patch("app.services.servers.requests.get", return_value=ok) as check:
+    ok = Mock(status_code=200, url="http://navidrome.local:4533/auth/login")
+    ok.json.return_value = {"token": "jwt", "isAdmin": True}
+    with patch("app.services.servers.requests.post", return_value=ok) as check:
         resp = client.post(
             f"/settings/servers/{server.id}/edit",
             data={
                 "server_name": "Renamed",
                 "server_type": submitted_type,
                 "server_url": "http://navidrome.local:4533",
-                "api_key": "token",
+                "server_username": "wizarr",
+                "server_password": "s3cret",
             },
         )
 
     assert resp.status_code in {302, 303}
     check.assert_called_once()
-    assert check.call_args.args[0] == "http://navidrome.local:4533/rest/ping"
+    assert check.call_args.args[0] == "http://navidrome.local:4533/auth/login"
     session.refresh(server)
     assert server.server_type == "navidrome"
     assert server.name == "Renamed"
