@@ -349,6 +349,16 @@ def _disable_expired_user(user: User) -> bool:
     return True
 
 
+def expiry_has_passed(user: User) -> bool:
+    """True when the account has an expiry and it is already behind us."""
+    if user.expires is None:
+        return False
+    ends = user.expires
+    if ends.tzinfo is None:
+        ends = ends.replace(tzinfo=datetime.UTC)
+    return ends <= datetime.datetime.now(datetime.UTC)
+
+
 def reenable_if_renewed(user: User) -> bool:
     """Switch a disabled account back on once its expiry is no longer past.
 
@@ -361,12 +371,8 @@ def reenable_if_renewed(user: User) -> bool:
     """
     if not user.is_disabled:
         return False
-    if user.expires is not None:
-        ends = user.expires
-        if ends.tzinfo is None:
-            ends = ends.replace(tzinfo=datetime.UTC)
-        if ends <= datetime.datetime.now(datetime.UTC):
-            return False
+    if expiry_has_passed(user):
+        return False
     return enable_user(user.id)
 
 
