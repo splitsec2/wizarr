@@ -30,8 +30,8 @@ class SettingsForm(FlaskForm):
     server_name = StringField(str(_l("Server Name")), validators=[DataRequired()])
     server_url = StringField(str(_l("Server URL")), validators=[DataRequired()])
     api_key = StringField(str(_l("API Key")), validators=[Optional()])
-    server_username = StringField(str(_l("RomM Username")), validators=[Optional()])
-    server_password = StringField(str(_l("RomM Password")), validators=[Optional()])
+    server_username = StringField(str(_l("Username")), validators=[Optional()])
+    server_password = StringField(str(_l("Password")), validators=[Optional()])
     libraries = StringField(str(_l("Libraries")), validators=[Optional()])
     allow_downloads = BooleanField(
         str(_l("Allow Downloads")), default=False, validators=[Optional()]

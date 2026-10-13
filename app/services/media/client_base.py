@@ -187,6 +187,26 @@ def capabilities_for(server_type: str) -> ClientCapabilities:
     return client.capabilities if client else DEFAULT_CAPABILITIES
 
 
+def credential_server_types() -> list[str]:
+    """Server types whose client declares a username and password."""
+    return sorted(
+        name for name, client in CLIENTS.items() if client.capabilities.credentials
+    )
+
+
+def credentials_api_key(server_type: str, values) -> str | None:
+    """The API key packed from a form's username and password.
+
+    Only for a server type whose client declares credentials, and only when
+    both fields are filled in; otherwise None and the form's API key is used.
+    """
+    if not capabilities_for(server_type).credentials:
+        return None
+    username = (values.get("server_username") or "").strip()
+    password = (values.get("server_password") or "").strip()
+    return pack_credentials(username, password) if username and password else None
+
+
 def join_fields_for(server_types) -> list[str]:
     """Fields the public join form must collect for an invite to these servers.
 
