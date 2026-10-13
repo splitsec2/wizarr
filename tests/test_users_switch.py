@@ -42,6 +42,12 @@ def remote(monkeypatch):
     return fake
 
 
+def _load(user_id: int) -> User:
+    user = db.session.get(User, user_id)
+    assert user is not None
+    return user
+
+
 def _server(session, server_type="audiobookshelf", name="ABS"):
     row = MediaServer(
         name=name, server_type=server_type, url="http://x.local", api_key="k"
@@ -82,7 +88,7 @@ def test_switch_off_disables_an_active_account(admin_client, session, remote):
 
     assert resp.status_code == 200
     remote.disable_user.assert_called_once()
-    assert db.session.get(User, user.id).is_disabled is True
+    assert _load(user.id).is_disabled is True
 
 
 def test_switch_off_leaves_an_already_disabled_account_alone(
@@ -105,7 +111,7 @@ def test_switch_on_enables_a_disabled_account(admin_client, session, remote):
     _switch(admin_client, "on", user.id)
 
     remote.enable_user.assert_called_once()
-    assert db.session.get(User, user.id).is_disabled is False
+    assert _load(user.id).is_disabled is False
 
 
 def test_switch_on_never_sends_an_enable_to_an_active_account(
@@ -130,7 +136,7 @@ def test_switch_on_after_the_expiry_stays_off_and_says_why(
     resp = _switch(admin_client, "on", user.id)
 
     remote.enable_user.assert_not_called()
-    assert db.session.get(User, user.id).is_disabled is True
+    assert _load(user.id).is_disabled is True
     body = resp.get_data(as_text=True)
     assert "sam" in body
     assert "access ended" in body
@@ -145,7 +151,7 @@ def test_a_failed_remote_switch_keeps_the_account_and_reports_it(
 
     resp = _switch(admin_client, "off", user.id)
 
-    assert db.session.get(User, user.id).is_disabled is False
+    assert _load(user.id).is_disabled is False
     body = resp.get_data(as_text=True)
     assert "could not be switched off" in body
     assert "ABS" in body
@@ -158,7 +164,7 @@ def test_a_server_that_cannot_disable_is_left_alone(admin_client, session, remot
     resp = _switch(admin_client, "off", user.id)
 
     remote.disable_user.assert_not_called()
-    assert db.session.get(User, user.id).is_disabled is False
+    assert _load(user.id).is_disabled is False
     assert "cannot be switched off" in resp.get_data(as_text=True)
 
 
