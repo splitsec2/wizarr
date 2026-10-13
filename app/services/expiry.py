@@ -11,6 +11,7 @@ from app.extensions import db
 from app.jinja_filters import local_timezone
 from app.models import ExpiredUser, Invitation, User, invitation_servers
 from app.services.media.service import delete_user, disable_user, enable_user
+from app.services.protected import is_protected_user, protected_emails
 
 try:
     import fcntl
@@ -283,6 +284,7 @@ def delete_user_if_expired() -> list[int]:
         User.expires.is_not(None),  # not null
         User.expires < now,
     ).all()
+    protected_addresses = protected_emails()
     # End the read before the loop. Each step below commits on its own.
     db.session.commit()
 
@@ -290,6 +292,11 @@ def delete_user_if_expired() -> list[int]:
     for user in expired_rows:
         try:
             user_id, username = user.id, user.username
+            if is_protected_user(user, protected_addresses):
+                logging.info(
+                    "Expired user %s (%s) is protected, skipped", user_id, username
+                )
+                continue
         except Exception as exc:
             # The row was removed by another process after the query.
             db.session.rollback()
@@ -403,6 +410,7 @@ def disable_or_delete_user_if_expired() -> list[int]:
         User.expires < now,
         User.is_disabled.is_(False),
     ).all()
+    protected_addresses = protected_emails()
     # End the read before the loop. Each step below commits on its own.
     db.session.commit()
 
@@ -411,6 +419,11 @@ def disable_or_delete_user_if_expired() -> list[int]:
         try:
             user_id, username = user.id, user.username
             server_type = user.server.server_type if user.server else None
+            if is_protected_user(user, protected_addresses):
+                logging.info(
+                    "Expired user %s (%s) is protected, skipped", user_id, username
+                )
+                continue
         except Exception as exc:
             # The row was removed by another process after the query.
             db.session.rollback()

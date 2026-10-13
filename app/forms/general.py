@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import BooleanField, SelectField, StringField
+from wtforms import BooleanField, SelectField, StringField, TextAreaField
 from wtforms.validators import DataRequired, Optional
 
 
@@ -16,6 +16,9 @@ class GeneralSettingsForm(FlaskForm):
         ],
         default="delete",
         validators=[DataRequired()],
+    )
+    protected_emails = TextAreaField(
+        "Protected addresses", default="", validators=[Optional()]
     )
     cinema_posters_source = SelectField(
         "Join Page Posters",
