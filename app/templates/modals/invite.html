@@ -43,7 +43,7 @@
               <!-- Wizard progress -->
               <ol id="wizard-progress"
                   class="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                {% for title in [_("Who"), _("What they get"), _("How long"), _("Review")] %}
+                {% for title in [_("Who"), _("How long"), _("What they get"), _("Review")] %}
                   <li data-wizard-dot="{{ loop.index0 }}" class="flex items-center gap-1">
                     <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current">{{ loop.index }}</span>
                     <span class="hidden sm:inline">{{ title }}</span>
@@ -114,8 +114,65 @@
                   </p>
                 </div>
               </section>
-              <!-- Step 2: what they get -->
+              <!-- Step 2: how long -->
               <section data-wizard-step="1" class="space-y-4" hidden>
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("How long?") }}</h2>
+                <!-- Expiration Dropdown -->
+                <div>
+                  <label for="expires"
+                         class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-400">
+                    {{ _("Invite link expires") }}
+                  </label>
+                  <select id="expires"
+                          name="expires"
+                          class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                    <option value="day">{{ _("1 day") }}</option>
+                    <option value="week" selected>{{ _("1 week") }}</option>
+                    <option value="month">{{ _("1 month") }}</option>
+                    <option value="never">{{ _("Never") }}</option>
+                  </select>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _("How long the link works before it stops opening.") }}</p>
+                </div>
+                <fieldset class="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                  <legend class="px-1 text-sm font-medium text-gray-900 dark:text-white">{{ _("How long their access lasts") }}</legend>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ _("Pick one, or leave both empty for access with no end date.") }}
+                  </p>
+                  <div id="duration-field">
+                    <label for="duration"
+                           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                      {{ _("Access lasts (days after they join)") }}
+                    </label>
+                    <input id="duration"
+                           name="duration"
+                           type="number"
+                           min="1"
+                           max="999"
+                           class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ _("Counts from the day each person joins. 1 to 999 days.") }}
+                    </p>
+                  </div>
+                  <div id="access-ends-field">
+                    <label for="access_ends_on"
+                           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                      {{ _("Access ends on (one date for everyone)") }}
+                    </label>
+                    <input id="access_ends_on"
+                           name="access_ends_on"
+                           type="date"
+                           class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ _("Access lasts through this day, whenever they join.") }}
+                    </p>
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ _("On the next step, a server can have its own end date instead.") }}
+                  </p>
+                </fieldset>
+              </section>
+              <!-- Step 3: what they get -->
+              <section data-wizard-step="2" class="space-y-4" hidden>
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("What do they get?") }}</h2>
                 <!-- Server Selection OUTSIDE advanced -->
                 <div class="space-y-2 mt-6">
@@ -300,16 +357,19 @@
                               <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
                             </label>
                           {% endif %}
-                          <!-- Per-server end date, overrides "Access ends on" -->
+                          <!-- Per-server end date, overrides the access end from the previous step -->
                           <div>
                             <label for="access_ends_on_{{ s.id }}"
                                    class="block text-sm font-medium text-gray-900 dark:text-gray-300">
-                              {{ _("Access ends on (this server only)") }}
+                              {{ _("End date for this server only") }}
                             </label>
                             <input id="access_ends_on_{{ s.id }}"
                                    name="access_ends_on_{{ s.id }}"
                                    type="date"
                                    class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              {{ _("Replaces the access end from the previous step, for this server only. Leave empty to keep it.") }}
+                            </p>
                           </div>
                           <!-- Library dropdown-search -->
                           <div class="mt-3 w-full relative">
@@ -343,80 +403,6 @@
                         </div>
                       </div>
                     {% endfor %}
-                  </div>
-                </div>
-              </section>
-              <!-- Step 3: how long -->
-              <section data-wizard-step="2" class="space-y-4" hidden>
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("How long?") }}</h2>
-                <!-- Expiration Dropdown -->
-                <div>
-                  <label for="expires"
-                         class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-400">
-                    {{ _("Invite link expires") }}
-                  </label>
-                  <select id="expires"
-                          name="expires"
-                          class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                    <option value="day">{{ _("1 day") }}</option>
-                    <option value="week" selected>{{ _("1 week") }}</option>
-                    <option value="month">{{ _("1 month") }}</option>
-                    <option value="never">{{ _("Never") }}</option>
-                  </select>
-                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _("How long the link works before it stops opening.") }}</p>
-                </div>
-                <div id="duration-field">
-                  <!-- Duration (in days) -->
-                  <div>
-                    <label for="duration"
-                           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                      {{ _("Duration") }}
-                      <span class="text-gray-500 ml-1">({{ _("in days") }})</span>
-                      <button data-popover-target="popover-description"
-                              data-popover-placement="bottom-end"
-                              type="button"
-                              class="ml-1">
-                        <svg class="w-4 h-4 text-gray-400 hover:text-gray-500"
-                             aria-hidden="true"
-                             fill="currentColor"
-                             viewBox="0 0 20 20"
-                             xmlns="http://www.w3.org/2000/svg">
-                          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd">
-                          </path>
-                        </svg>
-                        <span class="sr-only">{{ _("Show Information") }}</span>
-                      </button>
-                    </label>
-                    <div data-popover
-                         id="popover-description"
-                         role="tooltip"
-                         class="absolute z-10 invisible inline-block text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-xs opacity-0 w-72 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
-                      <div class="p-3 space-y-2">
-                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ _("Duration") }}</h3>
-                        <p>{{ _("Each person loses access this many days after they join. (1-999)") }}</p>
-                      </div>
-                      <div data-popper-arrow></div>
-                    </div>
-                    <input id="duration"
-                           name="duration"
-                           type="number"
-                           min="1"
-                           max="999"
-                           class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                  </div>
-                </div>
-                <div id="access-ends-field">
-                  <!-- Access ends on (a date instead of a number of days) -->
-                  <div>
-                    <label for="access_ends_on"
-                           class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                      {{ _("Access ends on") }}
-                    </label>
-                    <input id="access_ends_on"
-                           name="access_ends_on"
-                           type="date"
-                           class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _("Access lasts through this day.") }}</p>
                   </div>
                 </div>
               </section>
@@ -627,8 +613,8 @@
         const el = (id) => document.getElementById(id);
         const text = {
             noServer: {{ _("Choose at least one server to continue.") | tojson }},
-            clearDuration: {{ _("Clear Duration to pick an end date.") | tojson }},
-            clearEnd: {{ _("Clear Access ends on to use a number of days.") | tojson }},
+            clearDuration: {{ _("Clear Access lasts to pick an end date.") | tojson }},
+            clearEnd: {{ _("Clear Access ends on to count in days.") | tojson }},
         };
         let current = 0;
 
@@ -667,7 +653,7 @@
             const end = el("access_ends_on");
             lock(end, days.value !== "", text.clearDuration);
             lock(days, end.value !== "", text.clearEnd);
-            const noServer = current === 1 && serversChosen().length === 0;
+            const noServer = current === 2 && serversChosen().length === 0;
             next.disabled = noServer;
             next.title = noServer ? text.noServer : "";
             hint.textContent = noServer ? text.noServer : "";
@@ -690,7 +676,9 @@
             }
             const names = Array.from(serversChosen()).map((c) => {
                 const label = form.querySelector('label[for="' + c.id + '"] p');
-                return label ? label.textContent.trim() : c.value;
+                const name = label ? label.textContent.trim() : c.value;
+                const own = el("access_ends_on_" + c.value);
+                return own && own.value ? name + " (" + {{ _("ends") | tojson }} + " " + own.value + ")" : name;
             });
             rows.push([{{ _("Servers") | tojson }}, names.join(", ")]);
             const exp = el("expires");
