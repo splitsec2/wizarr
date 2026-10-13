@@ -154,8 +154,22 @@ class ProvisioningHookClient(RestApiMixin):
             raise RuntimeError(reply.get("error") or "Provisioning hook refused grant")
         return email
 
-    def update_user(self, *_args, **_kwargs) -> dict[str, Any]:
-        return {}
+    def update_user(self, user_id: str, patch: dict | None = None) -> dict[str, Any]:
+        """Change a password through the endpoint's ``set-password`` verb.
+
+        A password is the only change the endpoint takes. Anything else, a
+        refusal or an endpoint that cannot be reached raises, so a caller never
+        reads a change that did not happen as done.
+        """
+        password = (patch or {}).get("password")
+        if not password:
+            raise RuntimeError("The provisioning hook can only change a password")
+        ok, reply = self._call("set-password", user_id, password)
+        if not ok:
+            raise RuntimeError(
+                reply.get("error") or "Provisioning hook refused set-password"
+            )
+        return {"ok": True}
 
     def enable_user(self, user_id: str) -> bool:
         return self._call("grant", user_id)[0]
