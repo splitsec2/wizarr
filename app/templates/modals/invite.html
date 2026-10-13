@@ -34,68 +34,38 @@
               <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-800 dark:text-red-200"
                    role="alert">{{ error_message }}</div>
             {% endif %}
-            <form class="space-y-4 md:space-y-6"
+            <form id="invite-form"
+                  class="space-y-4 md:space-y-6"
                   hx-post="/invite"
                   hx-target="#inviteModalContent"
                   hx-swap="innerHTML"
-                  onsubmit="return validateServerSelection()">
-              <!-- Invite Code -->
-              <div>
-                <label for="code"
-                       class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                  {{ _("Invite Code String") }}
-                  <span class="text-gray-500 ml-1">({{ _("optional") }})</span>
+                  onsubmit="return inviteWizard.submit()">
+              <!-- Wizard progress -->
+              <ol id="wizard-progress"
+                  class="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                {% for title in [_("Who"), _("What they get"), _("How long"), _("Review")] %}
+                  <li data-wizard-dot="{{ loop.index0 }}" class="flex items-center gap-1">
+                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-current">{{ loop.index }}</span>
+                    <span class="hidden sm:inline">{{ title }}</span>
+                  </li>
+                  {% if not loop.last %}<li aria-hidden="true" class="h-px grow bg-gray-300 dark:bg-gray-600"></li>{% endif %}
+                {% endfor %}
+              </ol>
+              <!-- Step 1: who -->
+              <section data-wizard-step="0" class="space-y-4">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("Who is this invite for?") }}</h2>
+                <!-- Unlimited Usage -->
+                <label class="flex items-center cursor-pointer">
+                  <input id="unlimited"
+                         name="unlimited"
+                         type="checkbox"
+                         value="true"
+                         class="sr-only peer">
+                  <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                  </div>
+                  <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Unlimited Usages") }}</span>
                 </label>
-                <input minlength="6"
-                       maxlength="10"
-                       type="text"
-                       name="code"
-                       id="code"
-                       class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary"
-                       placeholder="{{ _('E.g. XMFGEJIKNQ') }}">
-              </div>
-              <!-- Expiration Dropdown -->
-              <div>
-                <label for="expires"
-                       class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-400">
-                  {{ _("Expiration") }}
-                </label>
-                <select id="expires"
-                        name="expires"
-                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                  <option value="day">{{ _("1 day") }}</option>
-                  <option value="week">{{ _("1 week") }}</option>
-                  <option value="month">{{ _("1 month") }}</option>
-                  <option value="never">{{ _("Never") }}</option>
-                </select>
-              </div>
-              {# Wizard bundle selection #}
-              {% if bundles %}
-                <div>
-                  <label for="wizard_bundle_id"
-                         class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-400">
-                    {{ _("Wizard bundle") }}
-                  </label>
-                  <select id="wizard_bundle_id"
-                          name="wizard_bundle_id"
-                          class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                    <option value="">{{ _("Automatic") }}</option>
-                    {% for b in bundles %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
-                  </select>
-                </div>
-              {% endif %}
-              <!-- Advanced Options Toggle -->
-              <div>
-                <a href="#"
-                   class="block mb-2 text-sm font-medium text-secondary dark:text-primary cursor-pointer"
-                   onclick="event.preventDefault(); showAdvanced();">{{ _("Advanced Options") }}</a>
-              </div>
-              <!-- ADVANCED OPTIONS CONTAINER -->
-              <div id="advanced"
-                   class="hidden space-y-6 border-t border-gray-200 pt-6 dark:border-gray-700">
-                <!-- Invite Settings Section -->
-                <div class="space-y-4">
-                  <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("Invite Settings") }}</h2>
+                <div id="single-fields">
                   <!-- Who the invite is for -->
                   <div>
                     <label for="invitee_name"
@@ -108,21 +78,10 @@
                            maxlength="80"
                            autocomplete="off"
                            class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {{ _("Their name, as you want to see it in Wizarr. Leave it empty for an unlimited invite.") }}
-                    </p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _("Their name, as you want to see it in Wizarr.") }}</p>
                   </div>
-                  <!-- Unlimited Usage -->
-                  <label class="flex items-center cursor-pointer">
-                    <input id="unlimited"
-                           name="unlimited"
-                           type="checkbox"
-                           value="true"
-                           class="sr-only peer">
-                    <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                    </div>
-                    <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Unlimited Usages") }}</span>
-                  </label>
+                </div>
+                <div id="shared-fields" class="space-y-4" hidden>
                   <!-- A shared invite: how many people, and who pays for them -->
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -140,7 +99,7 @@
                     <div>
                       <label for="paid_by"
                              class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                        {{ _("Paid by") }}
+                        {{ _("Supporter") }}
                       </label>
                       <input id="paid_by"
                              name="paid_by"
@@ -151,8 +110,262 @@
                     </div>
                   </div>
                   <p class="text-xs text-gray-500 dark:text-gray-400">
-                    {{ _("For an unlimited invite several people share, such as a family: the most people who can join, and who pays for them. Leave both empty otherwise.") }}
+                    {{ _("Several people share this invite, such as a family: the most people who can join, and the supporter who covers them.") }}
                   </p>
+                </div>
+              </section>
+              <!-- Step 2: what they get -->
+              <section data-wizard-step="1" class="space-y-4" hidden>
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("What do they get?") }}</h2>
+                <!-- Server Selection OUTSIDE advanced -->
+                <div class="space-y-2 mt-6">
+                  <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Choose the servers") }}</label>
+                  <div id="server-grid" class="flex flex-col space-y-4">
+                    {% for s in servers %}
+                      <div class="relative flex flex-col items-start w-full rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4 shadow-sm transition hover:border-primary hover:shadow peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary focus-within:ring-2 focus-within:ring-primary">
+                        <input type="checkbox"
+                               class="sr-only peer"
+                               id="srv{{ s.id }}"
+                               name="server_ids"
+                               value="{{ s.id }}"
+                               {% if s.id == chosen_server_id %}checked{% endif %}
+                               onchange="updatePrimaryServer(); handleServerToggle(this, {{ s.id }})">
+                        <label for="srv{{ s.id }}" class="w-full grow cursor-pointer">
+                          <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ s.name }}</p>
+                          {{ s.server_type|server_type_tag }}
+                        </label>
+                        <svg class="absolute top-2 right-2 w-5 h-5 text-primary opacity-0 peer-checked:opacity-100"
+                             xmlns="http://www.w3.org/2000/svg"
+                             fill="currentColor"
+                             viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414L8.414 15l-4.121-4.12a1 1 0 011.414-1.415L8.414 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd">
+                          </path>
+                        </svg>
+                        <!-- Media-specific options & library picker -->
+                        <div class="w-full mt-4 space-y-2 hidden peer-checked:block">
+                          {% if s.server_type == "plex" %}
+                            {# Fork: the operator's advice beside each Plex option, kept in one place. #}
+                            {% set plex_hints = {
+                              "Invite to Plex Home": _("not recommended"),
+                              "Allow Downloads": _("recommended"),
+                              "Allow Live TV Access": _("not recommended"),
+                              "Allow Mobile Uploads": _("not recommended"),
+                            } %}
+                            <label class="flex items-center cursor-pointer">
+                              <input id="plex_home_{{ s.id }}"
+                                     name="plex_home"
+                                     type="checkbox"
+                                     value="true"
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Invite to Plex Home") }}</span>
+                              <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">({{ plex_hints["Invite to Plex Home"] }})</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_downloads_{{ s.id }}"
+                                     name="allow_downloads"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_downloads %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
+                              <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">({{ plex_hints["Allow Downloads"] }})</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_live_tv_{{ s.id }}"
+                                     name="allow_live_tv"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_live_tv %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Live TV Access") }}</span>
+                              <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">({{ plex_hints["Allow Live TV Access"] }})</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_mobile_uploads_{{ s.id }}"
+                                     name="allow_mobile_uploads"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_mobile_uploads %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Mobile Uploads") }}</span>
+                              <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">({{ plex_hints["Allow Mobile Uploads"] }})</span>
+                            </label>
+                          {% elif s.server_type == "jellyfin" %}
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_downloads_{{ s.id }}"
+                                     name="allow_downloads"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_downloads %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_live_tv_{{ s.id }}"
+                                     name="allow_live_tv"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_live_tv %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Live TV Access") }}</span>
+                            </label>
+                            <!-- Max Active Sessions - ID is server-specific to prevent duplicate DOM IDs,
+                               but name is shared since max_active_sessions is an invitation-level setting.
+                               When multiple Jellyfin servers are selected, the first value is used. -->
+                            <div>
+                              <label for="max_active_sessions_{{ s.id }}"
+                                     class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                                {{ _("Max Active Sessions") }}
+                                <span class="text-gray-500 ml-1">({{ _("simultaneous devices") }})</span>
+                              </label>
+                              <input id="max_active_sessions_{{ s.id }}"
+                                     name="max_active_sessions"
+                                     type="number"
+                                     min="0"
+                                     max="100"
+                                     placeholder="0 = unlimited"
+                                     class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                {{ _("Number of devices that can stream simultaneously. Set to 0 for unlimited.") }}
+                              </p>
+                            </div>
+                          {% elif s.server_type == "emby" %}
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_downloads_{{ s.id }}"
+                                     name="allow_downloads"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_downloads %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_live_tv_{{ s.id }}"
+                                     name="allow_live_tv"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_live_tv %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Live TV Access") }}</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_mobile_uploads_{{ s.id }}"
+                                     name="allow_mobile_uploads"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_mobile_uploads %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Mobile Uploads") }}</span>
+                            </label>
+                          {% elif s.server_type == "audiobookshelf" %}
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_downloads_{{ s.id }}"
+                                     name="allow_downloads"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_downloads %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
+                            </label>
+                          {% elif s.server_type == "komga" %}
+                            <label class="flex items-center cursor-pointer">
+                              <input id="allow_downloads_{{ s.id }}"
+                                     name="allow_downloads"
+                                     type="checkbox"
+                                     value="true"
+                                     {% if s.allow_downloads %}checked{% endif %}
+                                     class="sr-only peer">
+                              <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                              </div>
+                              <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
+                            </label>
+                          {% endif %}
+                          <!-- Per-server end date, overrides "Access ends on" -->
+                          <div>
+                            <label for="access_ends_on_{{ s.id }}"
+                                   class="block text-sm font-medium text-gray-900 dark:text-gray-300">
+                              {{ _("Access ends on (this server only)") }}
+                            </label>
+                            <input id="access_ends_on_{{ s.id }}"
+                                   name="access_ends_on_{{ s.id }}"
+                                   type="date"
+                                   class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                          </div>
+                          <!-- Library dropdown-search -->
+                          <div class="mt-3 w-full relative">
+                            <button id="libBtn{{ s.id }}"
+                                    type="button"
+                                    class="text-white bg-primary hover:bg-primary_hover focus:ring-4 focus:outline-none focus:ring-primary_hover font-medium rounded-lg text-xs px-3 py-2 inline-flex items-center"
+                                    aria-controls="libMenu{{ s.id }}"
+                                    aria-expanded="false"
+                                    hx-post="/invite/scan-libraries"
+                                    hx-vals='{"server_ids":"{{ s.id }}"}'
+                                    hx-target="#libMenu{{ s.id }} .dropdown-content"
+                                    hx-swap="innerHTML"
+                                    hx-trigger="click[!isLibraryDropdownLoaded('libMenu{{ s.id }}')]"
+                                    onclick="event.stopPropagation(); toggleDropdown('libMenu{{ s.id }}')">
+                              {{ _("Select Libraries") }}
+                              <svg class="w-2.5 h-2.5 ms-2"
+                                   aria-hidden="true"
+                                   xmlns="http://www.w3.org/2000/svg"
+                                   fill="none"
+                                   viewBox="0 0 10 6">
+                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4" />
+                              </svg>
+                            </button>
+                            <!-- Dropdown menu -->
+                            <div id="libMenu{{ s.id }}"
+                                 class="z-10 hidden mt-2 bg-white rounded-lg shadow-lg w-60 dark:bg-gray-700"
+                                 onclick="event.stopPropagation()">
+                              <div class="dropdown-content p-3 text-sm text-gray-500 dark:text-gray-300">{{ _("Loading…") }}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </section>
+              <!-- Step 3: how long -->
+              <section data-wizard-step="2" class="space-y-4" hidden>
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("How long?") }}</h2>
+                <!-- Expiration Dropdown -->
+                <div>
+                  <label for="expires"
+                         class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-400">
+                    {{ _("Invite link expires") }}
+                  </label>
+                  <select id="expires"
+                          name="expires"
+                          class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                    <option value="day">{{ _("1 day") }}</option>
+                    <option value="week" selected>{{ _("1 week") }}</option>
+                    <option value="month">{{ _("1 month") }}</option>
+                    <option value="never">{{ _("Never") }}</option>
+                  </select>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _("How long the link works before it stops opening.") }}</p>
+                </div>
+                <div id="duration-field">
                   <!-- Duration (in days) -->
                   <div>
                     <label for="duration"
@@ -180,7 +393,7 @@
                          class="absolute z-10 invisible inline-block text-sm font-light text-gray-500 transition-opacity duration-300 bg-white border border-gray-200 rounded-lg shadow-xs opacity-0 w-72 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400">
                       <div class="p-3 space-y-2">
                         <h3 class="font-semibold text-gray-900 dark:text-white">{{ _("Duration") }}</h3>
-                        <p>{{ _("When set, invited user(s) will be removed from the Plex server after a number of days. (1-999)") }}</p>
+                        <p>{{ _("Each person loses access this many days after they join. (1-999)") }}</p>
                       </div>
                       <div data-popper-arrow></div>
                     </div>
@@ -191,6 +404,8 @@
                            max="999"
                            class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
                   </div>
+                </div>
+                <div id="access-ends-field">
                   <!-- Access ends on (a date instead of a number of days) -->
                   <div>
                     <label for="access_ends_on"
@@ -201,271 +416,98 @@
                            name="access_ends_on"
                            type="date"
                            class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {{ _("Access lasts through this day. Use this or Duration, not both.") }}
-                    </p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _("Access lasts through this day.") }}</p>
                   </div>
                 </div>
-                <!-- LDAP User Creation Section -->
-                {% if ldap_enabled %}
-                  <div class="space-y-4 mt-6 border-t border-gray-200 pt-6 dark:border-gray-700"
-                       x-data="{ createLdapUser: true }">
-                    <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("LDAP Integration") }}</h2>
-                    <!-- Create LDAP User Toggle -->
-                    <label class="flex items-center cursor-pointer">
-                      <input id="create_ldap_user"
-                             name="create_ldap_user"
-                             type="checkbox"
-                             value="true"
-                             checked
-                             x-model="createLdapUser"
-                             class="sr-only peer">
-                      <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                      </div>
-                      <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Create LDAP User") }}</span>
-                    </label>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 -mt-2">
-                      {{ _("Automatically create an LDAP user when this invitation is accepted") }}
-                    </p>
-                  </div>
-                {% endif %}
-              </div>
-              <!-- Server Selection OUTSIDE advanced -->
-              <div class="space-y-2 mt-6">
-                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{{ _("Target servers") }}</label>
-                <div id="server-grid" class="flex flex-col space-y-4">
-                  {% for s in servers %}
-                    <div class="relative flex flex-col items-start w-full rounded-lg border bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4 shadow-sm transition hover:border-primary hover:shadow peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary focus-within:ring-2 focus-within:ring-primary">
-                      <input type="checkbox"
-                             class="sr-only peer"
-                             id="srv{{ s.id }}"
-                             name="server_ids"
-                             value="{{ s.id }}"
-                             {% if s.id == chosen_server_id %}checked{% endif %}
-                             onchange="updatePrimaryServer(); handleServerToggle(this, {{ s.id }})">
-                      <label for="srv{{ s.id }}" class="w-full grow cursor-pointer">
-                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ s.name }}</p>
-                        {{ s.server_type|server_type_tag }}
+              </section>
+              <!-- Step 4: review -->
+              <section data-wizard-step="3" class="space-y-4" hidden>
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("Review") }}</h2>
+                <dl id="invite-review"
+                    class="divide-y divide-gray-200 text-sm dark:divide-gray-700">
+                </dl>
+                <details class="rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+                         id="more-options">
+                  <summary class="cursor-pointer text-sm font-medium text-secondary dark:text-primary">{{ _("More options") }}</summary>
+                  <div class="mt-4 space-y-4">
+                    <!-- Invite Code -->
+                    <div>
+                      <label for="code"
+                             class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                        {{ _("Invite Code String") }}
+                        <span class="text-gray-500 ml-1">({{ _("optional") }})</span>
                       </label>
-                      <svg class="absolute top-2 right-2 w-5 h-5 text-primary opacity-0 peer-checked:opacity-100"
-                           xmlns="http://www.w3.org/2000/svg"
-                           fill="currentColor"
-                           viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414L8.414 15l-4.121-4.12a1 1 0 011.414-1.415L8.414 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd">
-                        </path>
-                      </svg>
-                      <!-- Media-specific options & library picker -->
-                      <div class="w-full mt-4 space-y-2 hidden peer-checked:block">
-                        {% if s.server_type == "plex" %}
-                          {# Fork: the operator's advice beside each Plex option, kept in one place. #}
-                          {% set plex_hints = {
-                            "Invite to Plex Home": _("not recommended"),
-                            "Allow Downloads": _("recommended"),
-                            "Allow Live TV Access": _("not recommended"),
-                            "Allow Mobile Uploads": _("not recommended"),
-                          } %}
-                          <label class="flex items-center cursor-pointer">
-                            <input id="plex_home_{{ s.id }}"
-                                   name="plex_home"
-                                   type="checkbox"
-                                   value="true"
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Invite to Plex Home") }}</span>
-                            <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">({{ plex_hints["Invite to Plex Home"] }})</span>
-                          </label>
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_downloads_{{ s.id }}"
-                                   name="allow_downloads"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_downloads %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
-                            <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">({{ plex_hints["Allow Downloads"] }})</span>
-                          </label>
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_live_tv_{{ s.id }}"
-                                   name="allow_live_tv"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_live_tv %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Live TV Access") }}</span>
-                            <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">({{ plex_hints["Allow Live TV Access"] }})</span>
-                          </label>
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_mobile_uploads_{{ s.id }}"
-                                   name="allow_mobile_uploads"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_mobile_uploads %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Mobile Uploads") }}</span>
-                            <span class="ms-2 text-xs text-gray-500 dark:text-gray-400">({{ plex_hints["Allow Mobile Uploads"] }})</span>
-                          </label>
-                        {% elif s.server_type == "jellyfin" %}
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_downloads_{{ s.id }}"
-                                   name="allow_downloads"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_downloads %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
-                          </label>
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_live_tv_{{ s.id }}"
-                                   name="allow_live_tv"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_live_tv %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Live TV Access") }}</span>
-                          </label>
-                          <!-- Max Active Sessions - ID is server-specific to prevent duplicate DOM IDs,
-                               but name is shared since max_active_sessions is an invitation-level setting.
-                               When multiple Jellyfin servers are selected, the first value is used. -->
-                          <div>
-                            <label for="max_active_sessions_{{ s.id }}"
-                                   class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                              {{ _("Max Active Sessions") }}
-                              <span class="text-gray-500 ml-1">({{ _("simultaneous devices") }})</span>
-                            </label>
-                            <input id="max_active_sessions_{{ s.id }}"
-                                   name="max_active_sessions"
-                                   type="number"
-                                   min="0"
-                                   max="100"
-                                   placeholder="0 = unlimited"
-                                   class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              {{ _("Number of devices that can stream simultaneously. Set to 0 for unlimited.") }}
-                            </p>
-                          </div>
-                        {% elif s.server_type == "emby" %}
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_downloads_{{ s.id }}"
-                                   name="allow_downloads"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_downloads %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
-                          </label>
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_live_tv_{{ s.id }}"
-                                   name="allow_live_tv"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_live_tv %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Live TV Access") }}</span>
-                          </label>
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_mobile_uploads_{{ s.id }}"
-                                   name="allow_mobile_uploads"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_mobile_uploads %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Mobile Uploads") }}</span>
-                          </label>
-                        {% elif s.server_type == "audiobookshelf" %}
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_downloads_{{ s.id }}"
-                                   name="allow_downloads"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_downloads %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
-                          </label>
-                        {% elif s.server_type == "komga" %}
-                          <label class="flex items-center cursor-pointer">
-                            <input id="allow_downloads_{{ s.id }}"
-                                   name="allow_downloads"
-                                   type="checkbox"
-                                   value="true"
-                                   {% if s.allow_downloads %}checked{% endif %}
-                                   class="sr-only peer">
-                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
-                            </div>
-                            <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Allow Downloads") }}</span>
-                          </label>
-                        {% endif %}
-                        <!-- Per-server end date, overrides "Access ends on" -->
-                        <div>
-                          <label for="access_ends_on_{{ s.id }}"
-                                 class="block text-sm font-medium text-gray-900 dark:text-gray-300">
-                            {{ _("Access ends on (this server only)") }}
-                          </label>
-                          <input id="access_ends_on_{{ s.id }}"
-                                 name="access_ends_on_{{ s.id }}"
-                                 type="date"
-                                 class="mt-1 bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
-                        </div>
-                        <!-- Library dropdown-search -->
-                        <div class="mt-3 w-full relative">
-                          <button id="libBtn{{ s.id }}"
-                                  type="button"
-                                  class="text-white bg-primary hover:bg-primary_hover focus:ring-4 focus:outline-none focus:ring-primary_hover font-medium rounded-lg text-xs px-3 py-2 inline-flex items-center"
-                                  aria-controls="libMenu{{ s.id }}"
-                                  aria-expanded="false"
-                                  hx-post="/invite/scan-libraries"
-                                  hx-vals='{"server_ids":"{{ s.id }}"}'
-                                  hx-target="#libMenu{{ s.id }} .dropdown-content"
-                                  hx-swap="innerHTML"
-                                  hx-trigger="click[!isLibraryDropdownLoaded('libMenu{{ s.id }}')]"
-                                  onclick="event.stopPropagation(); toggleDropdown('libMenu{{ s.id }}')">
-                            {{ _("Select Libraries") }}
-                            <svg class="w-2.5 h-2.5 ms-2"
-                                 aria-hidden="true"
-                                 xmlns="http://www.w3.org/2000/svg"
-                                 fill="none"
-                                 viewBox="0 0 10 6">
-                              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4" />
-                            </svg>
-                          </button>
-                          <!-- Dropdown menu -->
-                          <div id="libMenu{{ s.id }}"
-                               class="z-10 hidden mt-2 bg-white rounded-lg shadow-lg w-60 dark:bg-gray-700"
-                               onclick="event.stopPropagation()">
-                            <div class="dropdown-content p-3 text-sm text-gray-500 dark:text-gray-300">{{ _("Loading…") }}</div>
-                          </div>
-                        </div>
-                      </div>
+                      <input minlength="6"
+                             maxlength="10"
+                             type="text"
+                             name="code"
+                             id="code"
+                             class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary"
+                             placeholder="{{ _('E.g. XMFGEJIKNQ') }}">
                     </div>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 dark:bg-gray-800">
-                <button type="submit"
-                        class="inline-flex w-full justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary_hover sm:ml-3 sm:w-auto">
+                    {# Wizard bundle selection #}
+                    {% if bundles %}
+                      <div>
+                        <label for="wizard_bundle_id"
+                               class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-400">
+                          {{ _("Wizard bundle") }}
+                        </label>
+                        <select id="wizard_bundle_id"
+                                name="wizard_bundle_id"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary focus:border-primary block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary dark:focus:border-primary">
+                          <option value="">{{ _("Automatic") }}</option>
+                          {% for b in bundles %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+                        </select>
+                      </div>
+                    {% endif %}
+                    <!-- LDAP User Creation Section -->
+                    {% if ldap_enabled %}
+                      <div class="space-y-4 mt-6 border-t border-gray-200 pt-6 dark:border-gray-700"
+                           x-data="{ createLdapUser: true }">
+                        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ _("LDAP Integration") }}</h2>
+                        <!-- Create LDAP User Toggle -->
+                        <label class="flex items-center cursor-pointer">
+                          <input id="create_ldap_user"
+                                 name="create_ldap_user"
+                                 type="checkbox"
+                                 value="true"
+                                 checked
+                                 x-model="createLdapUser"
+                                 class="sr-only peer">
+                          <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary dark:peer-checked:bg-primary">
+                          </div>
+                          <span class="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{ _("Create LDAP User") }}</span>
+                        </label>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+                          {{ _("Automatically create an LDAP user when this invitation is accepted") }}
+                        </p>
+                      </div>
+                    {% endif %}
+                  </div>
+                </details>
+              </section>
+              <div class="flex flex-wrap items-center gap-3 bg-gray-50 px-4 py-3 sm:px-6 dark:bg-gray-800">
+                <button id="wizard-back"
+                        type="button"
+                        class="inline-flex justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                  {{ _("Back") }}
+                </button>
+                <span id="wizard-hint"
+                      class="grow text-xs text-gray-500 dark:text-gray-400"></span>
+                <button id="wizard-next"
+                        type="button"
+                        class="inline-flex justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary_hover disabled:cursor-not-allowed disabled:opacity-50">
+                  {{ _("Next") }}
+                </button>
+                <button id="wizard-create"
+                        type="submit"
+                        hidden
+                        class="inline-flex justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary_hover">
                   {{ _("Create Invitation") }}
                 </button>
                 <button onclick="closeInviteModal()"
                         type="button"
-                        class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+                        class="inline-flex justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
                   {{ _("Cancel") }}
                 </button>
               </div>
@@ -568,10 +610,160 @@
         });
     }
 
-    function showAdvanced() {
-        const adv = document.getElementById("advanced");
-        adv.classList.toggle("hidden");
-    }
+
+    // The invite is made in four steps inside one form: the same fields and the
+    // same POST as before, only shown a step at a time.
+    const inviteWizard = (function () {
+        const form = document.getElementById("invite-form");
+        if (!form) {
+            return { submit: () => true };
+        }
+        const steps = Array.from(form.querySelectorAll("[data-wizard-step]"));
+        const dots = Array.from(form.querySelectorAll("[data-wizard-dot]"));
+        const back = document.getElementById("wizard-back");
+        const next = document.getElementById("wizard-next");
+        const create = document.getElementById("wizard-create");
+        const hint = document.getElementById("wizard-hint");
+        const el = (id) => document.getElementById(id);
+        const text = {
+            noServer: {{ _("Choose at least one server to continue.") | tojson }},
+            clearDuration: {{ _("Clear Duration to pick an end date.") | tojson }},
+            clearEnd: {{ _("Clear Access ends on to use a number of days.") | tojson }},
+        };
+        let current = 0;
+
+        // A utility class such as inline-flex can override the hidden attribute,
+        // so set display as well.
+        function setShown(node, shown) {
+            node.hidden = !shown;
+            node.style.display = shown ? "" : "none";
+        }
+
+        function setDisabled(container, disabled) {
+            container.querySelectorAll("input").forEach((i) => { i.disabled = disabled; });
+        }
+
+        function lock(input, locked, reason) {
+            input.disabled = locked;
+            input.classList.toggle("opacity-50", locked);
+            input.classList.toggle("cursor-not-allowed", locked);
+            const holder = input.parentElement;
+            if (holder) {
+                holder.title = locked ? reason : "";
+            }
+        }
+
+        function serversChosen() {
+            return form.querySelectorAll('#server-grid input[name="server_ids"]:checked');
+        }
+
+        function sync() {
+            const shared = el("unlimited").checked;
+            setShown(el("single-fields"), !shared);
+            setShown(el("shared-fields"), shared);
+            setDisabled(el("single-fields"), shared);
+            setDisabled(el("shared-fields"), !shared);
+            const days = el("duration");
+            const end = el("access_ends_on");
+            lock(end, days.value !== "", text.clearDuration);
+            lock(days, end.value !== "", text.clearEnd);
+            const noServer = current === 1 && serversChosen().length === 0;
+            next.disabled = noServer;
+            next.title = noServer ? text.noServer : "";
+            hint.textContent = noServer ? text.noServer : "";
+        }
+
+        function summary() {
+            const rows = [];
+            const shared = el("unlimited").checked;
+            if (shared) {
+                const people = el("max_people").value;
+                const payer = el("paid_by").value.trim();
+                let who = {{ _("A shared invite") | tojson }};
+                if (people) who += " (" + {{ _("up to") | tojson }} + " " + people + ")";
+                if (payer) who += ", " + {{ _("Supporter") | tojson }} + ": " + payer;
+                rows.push([{{ _("Who") | tojson }}, who]);
+            } else {
+                rows.push([{{ _("Who") | tojson }}, el("invitee_name").value.trim() || {{ _("One person") | tojson }}]);
+            }
+            const names = Array.from(serversChosen()).map((c) => {
+                const label = form.querySelector('label[for="' + c.id + '"] p');
+                return label ? label.textContent.trim() : c.value;
+            });
+            rows.push([{{ _("Servers") | tojson }}, names.join(", ")]);
+            const exp = el("expires");
+            rows.push([{{ _("Invite link expires") | tojson }}, exp.options[exp.selectedIndex].text]);
+            const days = el("duration").value;
+            const end = el("access_ends_on").value;
+            let access = {{ _("No end date") | tojson }};
+            if (days) access = days + " " + {{ _("days after they join") | tojson }};
+            if (end) access = {{ _("Through") | tojson }} + " " + end;
+            rows.push([{{ _("Access") | tojson }}, access]);
+            const box = el("invite-review");
+            box.replaceChildren();
+            rows.forEach(([k, v]) => {
+                const row = document.createElement("div");
+                row.className = "flex justify-between gap-4 py-2";
+                const dt = document.createElement("dt");
+                dt.className = "text-gray-500 dark:text-gray-400";
+                dt.textContent = k;
+                const dd = document.createElement("dd");
+                dd.className = "text-right font-medium text-gray-900 dark:text-white";
+                dd.textContent = v;
+                row.append(dt, dd);
+                box.append(row);
+            });
+        }
+
+        function show(index) {
+            current = Math.max(0, Math.min(steps.length - 1, index));
+            steps.forEach((s, i) => setShown(s, i === current));
+            dots.forEach((d, i) => {
+                d.classList.toggle("text-primary", i === current);
+                d.classList.toggle("font-semibold", i === current);
+            });
+            setShown(back, current !== 0);
+            setShown(next, current !== steps.length - 1);
+            setShown(create, current === steps.length - 1);
+            if (current === steps.length - 1) summary();
+            sync();
+        }
+
+        function stepValid(index) {
+            const fields = steps[index].querySelectorAll("input, select");
+            for (const f of fields) {
+                if (!f.disabled && !f.checkValidity()) {
+                    show(index);
+                    const more = f.closest("details");
+                    if (more) more.open = true;
+                    f.reportValidity();
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        back.addEventListener("click", () => show(current - 1));
+        next.addEventListener("click", () => { if (stepValid(current)) show(current + 1); });
+        form.addEventListener("input", sync);
+        form.addEventListener("change", sync);
+        form.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && e.target.tagName === "INPUT") {
+                e.preventDefault();
+                if (current < steps.length - 1 && !next.disabled && stepValid(current)) show(current + 1);
+            }
+        });
+        show(0);
+
+        return {
+            submit() {
+                for (let i = 0; i < steps.length; i++) {
+                    if (!stepValid(i)) return false;
+                }
+                return validateServerSelection();
+            },
+        };
+    })();
 
     function updatePrimaryServer() {
         // This function is no longer needed since we removed the hidden server_id field

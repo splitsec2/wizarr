@@ -214,7 +214,7 @@ def test_the_invite_card_shows_payer_people_and_extends(app, mail):
     admin_client = _admin(app)
 
     card = admin_client.post("/invite/table").get_data(as_text=True)
-    assert "Paid by Pat" in card
+    assert "Supporter: Pat" in card
     assert "People: 1 of 5" in card
     assert "Extend everyone" in card
 
