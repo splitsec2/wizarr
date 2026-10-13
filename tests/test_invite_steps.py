@@ -389,5 +389,70 @@ def test_users_show_how_far_their_invite_got(client, plex_abs, fake_plex):
     assert "AudioBookShelf (to do)" in html
 
 
+def _name_block(html: str) -> str:
+    """The text inside the first card's name block (the div around the name, the
+    email and the invite lines)."""
+    from html.parser import HTMLParser
+
+    class Grab(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.depth = 0
+            self.parts: list[str] = []
+            self.done = False
+
+        def handle_starttag(self, tag, attrs):
+            if tag != "div" or self.done:
+                return
+            if self.depth:
+                self.depth += 1
+            elif "min-w-0" in dict(attrs).get("class", "").split():
+                self.depth = 1
+
+        def handle_endtag(self, tag):
+            if tag == "div" and self.depth:
+                self.depth -= 1
+                self.done = self.depth == 0
+
+        def handle_data(self, data):
+            if self.depth and not self.done:
+                self.parts.append(data)
+
+    grab = Grab()
+    grab.feed(html)
+    return " ".join(" ".join(grab.parts).split())
+
+
+def test_the_card_keeps_the_email_and_invite_lines_under_the_name(
+    client, plex_abs, fake_plex
+):
+    """The invite lines used to sit beside the avatar, which squeezed the name
+    and the email away. They belong in the same block, under the email."""
+    _invitation, plex, _abs = plex_abs
+    client.post("/j/STEPS123/steps/plex", data={"token": "t"})
+    admin_client = client.application.test_client()
+    admin_client.post("/login", data={"username": "admin", "password": "password"})
+    html = admin_client.get("/users/table", headers={"HX-Request": "true"}).get_data(
+        as_text=True
+    )
+
+    block = _name_block(html)
+    assert "sam@example.com" in block
+    assert "AllThePopcorn" in block
+    assert "Set up:" in block
+
+
+def test_the_avatar_is_one_initial(client, plex_abs, fake_plex):
+    client.post("/j/STEPS123/steps/plex", data={"token": "t"})
+    admin_client = client.application.test_client()
+    admin_client.post("/login", data={"username": "admin", "password": "password"})
+    html = admin_client.get("/users/table", headers={"HX-Request": "true"}).get_data(
+        as_text=True
+    )
+    initials = re.findall(r"rounded-full bg-primary/10[^>]*>\s*(\S+)\s*<", html)
+    assert initials
+    assert all(len(letters) == 1 for letters in initials)
+
+
 def test_accounts_from_ordinary_invites_show_no_setup(session):
     assert User(username="x", code=None).invite_setup() == []
