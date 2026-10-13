@@ -106,13 +106,13 @@ PAID_BY_MAX = 80
 
 
 def _shared_settings(form: Any) -> tuple[int | None, str | None]:
-    """Read "How many people" and "Paid by", which only a shared invite has."""
+    """Read "How many people" and "Supporter", which only a shared invite has."""
     raw_max = str(form.get("max_people") or "").strip()
     paid_by = " ".join(str(form.get("paid_by") or "").split())[:PAID_BY_MAX] or None
     if not form.get("unlimited"):
         if raw_max or paid_by:
             raise ValueError(
-                "How many people and Paid by are for an invite several people "
+                "How many people and Supporter are for an invite several people "
                 "use. Turn on Unlimited Usages, or leave them empty."
             )
         return None, None

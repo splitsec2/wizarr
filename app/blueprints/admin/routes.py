@@ -166,6 +166,9 @@ def invite():
         if sid:
             target_server = db.session.get(MediaServer, int(sid))
             break
+    # Only a server the admin asked for is ticked; the first server still drives
+    # the contextual options, but it is not chosen for them.
+    chosen_server_id = target_server.id if target_server else None
     if not target_server:
         target_server = first_server
 
@@ -194,7 +197,7 @@ def invite():
                 allow_downloads=allow_downloads,
                 allow_live_tv=allow_live_tv,
                 servers=servers,
-                chosen_server_id=target_server.id if target_server else None,
+                chosen_server_id=chosen_server_id,
                 bundles=bundles,
                 ldap_enabled=ldap_enabled,
             ), 400
@@ -213,7 +216,7 @@ def invite():
             allow_downloads=allow_downloads,
             allow_live_tv=allow_live_tv,
             servers=servers,
-            chosen_server_id=target_server.id if target_server else None,
+            chosen_server_id=chosen_server_id,
             bundles=bundles,
             ldap_enabled=ldap_enabled,
         )
@@ -228,7 +231,7 @@ def invite():
         allow_downloads=allow_downloads,
         allow_live_tv=allow_live_tv,
         servers=servers,
-        chosen_server_id=target_server.id if target_server else None,
+        chosen_server_id=chosen_server_id,
         bundles=bundles,
         ldap_enabled=ldap_enabled,
     )
