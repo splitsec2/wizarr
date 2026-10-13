@@ -161,6 +161,44 @@ def test_delete_disables_and_never_deletes(session, hook):
         client.delete_user("reader@example.com")
 
 
+def test_update_user_sends_a_password_change_and_raises_when_refused(session, hook):
+    server = _server()
+    client = _client(server)
+
+    assert client.update_user("reader@example.com", {"password": "Str0ng-pass-1"})
+    assert hook.calls == [("set-password", "reader@example.com")]
+    assert hook.passwords == ["Str0ng-pass-1"]
+
+    hook.replies["set-password"] = (400, {"ok": False, "error": "verb not allowed"})
+    with pytest.raises(RuntimeError, match="verb not allowed"):
+        client.update_user("reader@example.com", {"password": "Str0ng-pass-1"})
+
+
+def test_update_user_raises_when_the_endpoint_is_unreachable(
+    session, hook, monkeypatch
+):
+    server = _server()
+    client = _client(server)
+
+    def down(*_args, **_kwargs):
+        raise provisioning_hook.requests.ConnectionError("no route")
+
+    monkeypatch.setattr(provisioning_hook.requests, "post", down)
+    with pytest.raises(RuntimeError, match="no route"):
+        client.update_user("reader@example.com", {"password": "Str0ng-pass-1"})
+
+
+def test_update_user_with_nothing_to_send_raises_without_calling(session, hook):
+    server = _server()
+    client = _client(server)
+
+    with pytest.raises(RuntimeError):
+        client.update_user("reader@example.com", {"type": "guest"})
+    with pytest.raises(RuntimeError):
+        client.update_user("reader@example.com")
+    assert hook.calls == []
+
+
 def test_enable_and_status(session, hook):
     server = _server()
     client = _client(server)
