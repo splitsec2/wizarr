@@ -94,3 +94,11 @@ def test_hidden_steps_and_disabled_fields_are_not_a_dead_end(client, session):
     assert "function stepValid" in html
     assert "more.open = true" in html
     assert 'id="more-options"' in html
+
+
+def test_a_shared_invite_is_called_multi_use(client, session):
+    _admin_with_servers(client, session)
+    html = _dialog(client)
+    assert "Multi-use invite" in html
+    assert "Unlimited Usages" not in html
+    assert "Leave How many people empty for no limit (not recommended)." in html

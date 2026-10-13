@@ -113,7 +113,7 @@ def _shared_settings(form: Any) -> tuple[int | None, str | None]:
         if raw_max or paid_by:
             raise ValueError(
                 "How many people and Supporter are for an invite several people "
-                "use. Turn on Unlimited Usages, or leave them empty."
+                "use. Turn on Multi-use invite, or leave them empty."
             )
         return None, None
     max_people = None
