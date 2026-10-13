@@ -1,5 +1,4 @@
 # app/blueprints/settings/routes.py
-import base64
 import logging
 
 from flask import (
@@ -16,6 +15,7 @@ from flask_babel import _
 from flask_login import login_required
 
 from app.services.expiry import disable_or_delete_user_if_expired
+from app.services.media.client_base import capabilities_for, credentials_api_key
 from app.services.media.service import scan_libraries as scan_media
 
 from ...extensions import db
@@ -63,13 +63,7 @@ def _save_settings(data: dict) -> None:
 
 
 def _check_server_connection(data: dict) -> tuple[bool, str]:
-    token = data.get("api_key") or ""
-    if data["server_type"] == "romm" and not token:
-        # Derive token from supplied credentials if api_key missing
-        username = data.get("server_username", "").strip()
-        password = data.get("server_password", "").strip()
-        if username and password:
-            token = base64.b64encode(f"{username}:{password}".encode()).decode()
+    token = data.get("api_key") or credentials_api_key(data["server_type"], data) or ""
     return check_server_connection(data["server_type"], data["server_url"], token)
 
 
@@ -191,11 +185,8 @@ def scan_libraries():
     url = request.form.get("server_url") or s.get("server_url")
     key = request.form.get("api_key") or s.get("api_key")
 
-    if stype == "romm" and (not key):
-        username = request.form.get("server_username")
-        password = request.form.get("server_password")
-        if username and password:
-            key = base64.b64encode(f"{username}:{password}".encode()).decode()
+    if not key and stype:
+        key = credentials_api_key(stype, request.form)
 
     if not url or not key:
         missing_fields = []
@@ -203,7 +194,9 @@ def scan_libraries():
             missing_fields.append(_("Server URL"))
         if not key:
             missing_fields.append(
-                _("API Key") if stype != "romm" else _("Username/Password")
+                _("Username/Password")
+                if stype and capabilities_for(stype).credentials
+                else _("API Key")
             )
 
         error_message = _("Missing required fields: {fields}").format(

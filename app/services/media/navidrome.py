@@ -55,9 +55,19 @@ class NavidromeClient(RestApiMixin):
         if self.url:
             self.url = self.url.rstrip("/")
 
+    #: The username Wizarr signed in with before the server form took one
+    LEGACY_USERNAME = "admin"
+
     def _credentials(self) -> tuple[str, str]:
-        """The admin (username, password) saved for this server."""
-        return unpack_credentials(self.token)
+        """The admin (username, password) saved for this server.
+
+        A key that isn't a packed username and password is a server saved before
+        the form took a username: the key is the password of the user ``admin``.
+        """
+        try:
+            return unpack_credentials(self.token)
+        except ValueError:
+            return self.LEGACY_USERNAME, self.token or ""
 
     def _generate_auth_params(self) -> dict[str, str]:
         """Authentication parameters for Subsonic API calls (salted hash)."""

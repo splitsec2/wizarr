@@ -283,6 +283,9 @@ def linkify(text) -> Markup:
 
 def register_filters(app):
     """Register the custom Jinja filters on the given Flask *app*."""
+    from app.services.media.client_base import credential_server_types
+
+    app.jinja_env.globals.setdefault("credential_server_types", credential_server_types)
     app.jinja_env.filters.setdefault("server_type_tag", server_type_tag)
     app.jinja_env.filters.setdefault("server_name_tag", server_name_tag)
     app.jinja_env.filters.setdefault("server_colour", _server_colour)
