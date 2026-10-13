@@ -172,7 +172,7 @@
                   <div class="text-xs text-muted-foreground dark:text-gray-400"
                        data-people-progress>
                     {% if invite.paid_by %}
-                      <div class="font-medium text-gray-700 dark:text-gray-300">{{ _("Paid by %(payer)s", payer=invite.paid_by) }}</div>
+                      <div class="font-medium text-gray-700 dark:text-gray-300">{{ _("Supporter: %(payer)s", payer=invite.paid_by) }}</div>
                     {% endif %}
                     <div>
                       {% if invite.max_people %}
