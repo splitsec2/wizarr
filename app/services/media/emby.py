@@ -311,7 +311,10 @@ class EmbyClient(JellyfinClient):
 
         # Get the user that was just created
         user = User.query.filter(
-            or_(User.username == username, func.lower(User.email) == (email or "").lower()),
+            or_(
+                User.username == username,
+                func.lower(User.email) == (email or "").lower(),
+            ),
             User.server_id == server_id,
         ).first()
 
