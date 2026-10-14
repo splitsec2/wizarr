@@ -20,6 +20,7 @@ from flask import current_app
 from app.extensions import db
 from app.models import Identity, MediaServer, Settings, User
 from app.services import account_guard
+from app.services import account_guard_address_rule as _address_rule  # noqa: F401  (registers the rule)
 from app.services.account_guard import AccountProtected
 from app.services.audit import audit_remote
 from app.services.protected import is_protected_user
