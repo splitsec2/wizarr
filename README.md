@@ -21,8 +21,9 @@ The Origin column says who wrote a change and where it stands upstream: **merged
 | "Who is this for" on an invite, kept with who created it | This fork. Fork only |
 | "Access ends on" date on an invite | This fork. Fork only |
 | Advice on the invite form for combinations that do not work (Plex mixed with services that skip the password step) | This fork. Fork only |
-| Server notes and links shown to the person once they are set up | This fork. Fork only |
+| Server notes and links shown to the person once they are set up. The address shows after each step, and the notes on the last page | This fork. Fork only |
 | A checklist invite opens on a welcome page first: the household name, who the invite is from, the pieces it covers and a Get started button | This fork. Fork only |
+| Every invite ends on a You're all set page, with one card per service that was set up (its address and note) and who to ask, instead of a redirect to the help page | This fork. Fork only |
 | Share button beside Copy on a new invite | This fork. Not sent yet |
 | A Plex and Audiobookshelf invite gives the Audiobookshelf account the invite's libraries | This fork. Not sent yet |
 | The join page shows posters only from the invite's own servers | This fork. Not sent yet |
