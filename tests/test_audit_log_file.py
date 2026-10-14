@@ -2,15 +2,21 @@
 
 import logging
 import logging.config
+from typing import Any
 
 import pytest
 
 from app import logging_config
 
 
+def _handlers() -> dict[str, Any]:
+    config: Any = logging_config.LOGGING_CONFIG
+    return config["handlers"]
+
+
 @pytest.fixture
 def pristine_config(monkeypatch):
-    config = logging_config.LOGGING_CONFIG
+    config: Any = logging_config.LOGGING_CONFIG
     fresh = {
         **config,
         "handlers": dict(config["handlers"]),
@@ -45,7 +51,7 @@ def test_off_adds_no_file_handler(monkeypatch, pristine_config):
 
     logging_config._add_audit_file()
 
-    assert "audit_file" not in logging_config.LOGGING_CONFIG["handlers"]
+    assert "audit_file" not in _handlers()
 
 
 def test_an_unwritable_path_is_skipped_not_fatal(
@@ -57,5 +63,5 @@ def test_an_unwritable_path_is_skipped_not_fatal(
 
     logging_config._add_audit_file()
 
-    assert "audit_file" not in logging_config.LOGGING_CONFIG["handlers"]
+    assert "audit_file" not in _handlers()
     assert "not writable" in capsys.readouterr().err
