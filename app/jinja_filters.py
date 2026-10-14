@@ -169,6 +169,23 @@ def local_to_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+EXPIRY_WARNING_DAYS = 30
+
+
+def expiry_state(user) -> str:
+    """How a user's card should flag the access end: "none" when the account
+    never expires, "soon" when it ends within 30 days (or already has),
+    otherwise "ok"."""
+    ends = getattr(user, "expires", None)
+    if ends is None:
+        return "none"
+    if ends.tzinfo is None:
+        ends = ends.replace(tzinfo=UTC)
+    if ends <= datetime.now(UTC) + timedelta(days=EXPIRY_WARNING_DAYS):
+        return "soon"
+    return "ok"
+
+
 def human_date(date_value) -> str:
     """Format date to 'Jan 15, 2024 at 2:30 PM'."""
     if not date_value:
@@ -296,6 +313,7 @@ def register_filters(app):
     app.jinja_env.filters.setdefault("server_type_tag", server_type_tag)
     app.jinja_env.filters.setdefault("server_name_tag", server_name_tag)
     app.jinja_env.filters.setdefault("server_colour", _server_colour)
+    app.jinja_env.filters.setdefault("expiry_state", expiry_state)
     app.jinja_env.filters.setdefault("human_date", human_date)
     app.jinja_env.filters.setdefault("local_date", local_date)
     app.jinja_env.filters.setdefault("access_last_day", access_last_day)

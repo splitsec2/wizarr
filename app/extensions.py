@@ -347,6 +347,10 @@ def _configure_sqlite_for_concurrency(app):
                 cursor.execute("PRAGMA synchronous=NORMAL")
                 # Auto-checkpoint only applies to WAL mode
                 cursor.execute("PRAGMA wal_autocheckpoint=1000")
+                # SQLite never shrinks the -wal file on its own, so one burst of
+                # writes leaves it at that size for good. Cap what a checkpoint
+                # leaves behind at 64 MB.
+                cursor.execute("PRAGMA journal_size_limit=67108864")
 
         # Set busy timeout to 30 seconds (works with all journal modes)
         cursor.execute("PRAGMA busy_timeout=30000")
