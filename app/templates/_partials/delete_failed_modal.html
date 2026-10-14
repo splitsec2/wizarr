@@ -25,7 +25,8 @@
       </p>
     {% endfor %}
     {% for username, server in protected %}
-      <p class="text-sm text-gray-700 dark:text-gray-300" data-delete-protected>
+      <p class="text-sm text-gray-700 dark:text-gray-300"
+         data-delete-protected>
         {{ _("%(who)s on %(where)s is protected, so it was not removed. Clear Protected on the person first if you want it gone.", who=username, where=server) }}
       </p>
     {% endfor %}
