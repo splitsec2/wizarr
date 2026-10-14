@@ -866,6 +866,11 @@ class MediaClient(ABC):
         """
         raise NotImplementedError
 
+    def default_library_ids(self) -> set[str] | None:
+        """Library ids the server itself offers to new users, or None when it
+        has no such setting. A server's first scan ticks exactly these."""
+        return None
+
     def invite_home(
         self, email: str, sections: list[str], allow_sync: bool, allow_channels: bool
     ):

@@ -167,6 +167,18 @@ class NavidromeClient(RestApiMixin):
             logging.warning("Navidrome: failed to fetch libraries – %s", exc)
             return {}
 
+    def default_library_ids(self) -> set[str] | None:
+        """Libraries Navidrome gives to new users (its defaultNewUsers flag)."""
+        try:
+            return {
+                str(lib["id"])
+                for lib in self._native("GET", "/library").json()
+                if lib.get("defaultNewUsers")
+            }
+        except Exception as exc:
+            logging.warning("Navidrome: failed to read default libraries – %s", exc)
+            return None
+
     def scan_libraries(
         self, url: str | None = None, token: str | None = None
     ) -> dict[str, str]:

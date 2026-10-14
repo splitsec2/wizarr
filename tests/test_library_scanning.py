@@ -192,3 +192,55 @@ def test_api_libraries_scan_failure_continues(client, api_key, test_server):
 
         # Should have tried to scan servers
         assert mock_scan.call_count >= 2
+
+
+class _DefaultsClient:
+    def default_library_ids(self):
+        return {"1"}
+
+
+def _navidrome_server(session):
+    server = MediaServer(
+        name="Music", server_type="navidrome", url="http://x", api_key="k"
+    )
+    db.session.add(server)
+    db.session.commit()
+    return server
+
+
+def test_first_scan_ticks_the_libraries_the_server_offers_new_users(session):
+    from app.services.media.service import upsert_scanned_libraries
+
+    server = _navidrome_server(session)
+    with patch(
+        "app.services.media.service.get_client_for_media_server",
+        return_value=_DefaultsClient(),
+    ):
+        upsert_scanned_libraries(server, {"1": "Music", "3": "Yoga"})
+        db.session.commit()
+    ticks = {
+        lib.name: lib.enabled for lib in Library.query.filter_by(server_id=server.id)
+    }
+    assert ticks == {"Music": True, "Yoga": False}
+
+
+def test_a_rescan_keeps_the_admins_ticks(session):
+    from app.services.media.service import upsert_scanned_libraries
+
+    server = _navidrome_server(session)
+    with patch(
+        "app.services.media.service.get_client_for_media_server",
+        return_value=_DefaultsClient(),
+    ):
+        upsert_scanned_libraries(server, {"1": "Music", "3": "Yoga"})
+        db.session.commit()
+        Library.query.filter_by(server_id=server.id, name="Music").one().enabled = False
+        Library.query.filter_by(server_id=server.id, name="Yoga").one().enabled = True
+        db.session.commit()
+        upsert_scanned_libraries(server, {"1": "Music", "3": "Yoga", "4": "New"})
+        db.session.commit()
+    ticks = {
+        lib.name: lib.enabled for lib in Library.query.filter_by(server_id=server.id)
+    }
+    assert ticks["Music"] is False
+    assert ticks["Yoga"] is True
