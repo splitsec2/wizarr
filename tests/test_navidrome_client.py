@@ -30,9 +30,9 @@ from app.services.media.client_base import (
 from app.services.media.navidrome import NavidromeClient
 
 LIBRARIES = [
-    {"id": 1, "name": "Music Library"},
-    {"id": 2, "name": "Liked Songs"},
-    {"id": 3, "name": "Yoga Class Music"},
+    {"id": 1, "name": "Music Library", "defaultNewUsers": True},
+    {"id": 2, "name": "Liked Songs", "defaultNewUsers": True},
+    {"id": 3, "name": "Yoga Class Music", "defaultNewUsers": False},
 ]
 
 
@@ -293,3 +293,7 @@ def test_a_key_saved_before_the_form_took_a_username_signs_in_as_admin(session, 
 
     login = next(c for c in fake.calls if c[1] == "/auth/login")
     assert login[2]["json"] == {"username": "admin", "password": "plain"}
+
+
+def test_default_libraries_are_the_ones_navidrome_gives_new_users(fake, server):
+    assert NavidromeClient(server).default_library_ids() == {"1", "2"}
