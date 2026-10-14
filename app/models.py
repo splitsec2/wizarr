@@ -230,6 +230,10 @@ class User(db.Model, UserMixin):
     identity = db.relationship("Identity", backref=db.backref("accounts", lazy=True))
     notes = db.Column(db.Text, nullable=True)
     is_disabled = db.Column(db.Boolean, nullable=False, default=False)
+    # Refused by delete, switch off and remove (app/services/account_guard.py)
+    protected = db.Column(
+        db.Boolean, nullable=False, default=False, server_default=db.false()
+    )
 
     # LDAP integration (2025-12)
     is_ldap_user = db.Column(db.Boolean, default=False, nullable=False)

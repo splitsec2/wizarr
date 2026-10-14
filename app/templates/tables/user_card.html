@@ -302,6 +302,11 @@
                       </svg>
                     </button>
                   {% endif %}
+                  {% set guarded = accs|selectattr("protected")|list|length > 0 %}
+                  {% if guarded %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300"
+                          title="{{ _('Never deleted, switched off or removed') }}">{{ _("Protected") }}</span>
+                  {% endif %}
                   {# The power button: the accounts on servers that can disable #}
                   {% set sw = namespace(ids=[], active=0) %}
                   {% for a in accs %}
@@ -312,8 +317,8 @@
                       {% endif %}
                     {% endif %}
                   {% endfor %}
-                  {% if sw.ids %}
-                    {% set switch_state = "off" if sw.active else "on" %}
+                  {% set switch_state = "off" if sw.active else "on" %}
+                  {% if sw.ids and not (guarded and switch_state == "off") %}
                     <button class="h-8 w-8 p-0 inline-flex items-center justify-center border border-transparent
                                    {% if switch_state == 'off' %}text-gray-400 hover:text-red-600 hover:border-red-400 dark:text-gray-500 dark:hover:text-red-400 dark:hover:border-red-500{% else %}text-green-600 hover:border-green-500 dark:text-green-400 dark:hover:border-green-400{% endif %}
                                    rounded-md transition-colors disabled:cursor-wait"

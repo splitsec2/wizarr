@@ -21,6 +21,7 @@ from app.models import (
     User,
     WebAuthnCredential,
 )
+from app.services.account_guard import AccountProtected
 from app.services.acting_admin import remember_api_key
 from app.services.invites import create_invite
 from app.services.media.service import (
@@ -404,6 +405,7 @@ class UserResource(Resource):
     @api.response(200, "User deleted successfully", success_message_model)
     @api.response(401, "Invalid or missing API key", error_model)
     @api.response(404, "User not found", error_model)
+    @api.response(409, "The account is protected", error_model)
     @api.response(500, "Internal server error", error_model)
     @require_api_key
     def delete(self, user_id):
@@ -425,6 +427,9 @@ class UserResource(Resource):
             # Delete user using the service (takes only user.id)
             delete_user(user.id)
             return {"message": f"User {user.username} deleted successfully"}
+
+        except AccountProtected as refused:
+            return {"error": refused.reason}, 409
 
         except Exception as e:
             logger.error("Error deleting user %s: %s", user_id, str(e))
@@ -485,6 +490,7 @@ class UserDisableResource(Resource):
     @api.response(200, "User disabled successfully", success_message_model)
     @api.response(401, "Invalid or missing API key", error_model)
     @api.response(404, "User not found", error_model)
+    @api.response(409, "The account is protected", error_model)
     @api.response(500, "Internal server error", error_model)
     @require_api_key
     def post(self, user_id):
@@ -521,6 +527,9 @@ class UserDisableResource(Resource):
             return {
                 "message": f"User {user.username} deleted (disable not supported by server)"
             }
+
+        except AccountProtected as refused:
+            return {"error": refused.reason}, 409
 
         except Exception as e:
             logger.error("Error disabling user %s: %s", user_id, str(e))
