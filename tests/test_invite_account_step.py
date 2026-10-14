@@ -186,9 +186,9 @@ def test_a_strong_password_server_alone_uses_the_checklist(setup_done):
     assert invite_steps.uses_steps(invitation)
 
 
-def test_a_single_basic_server_keeps_its_own_join_page(setup_done):
+def test_a_single_basic_server_uses_the_checklist(setup_done):
     invitation = _invite(_server("A", "audiobookshelf"))
-    assert not invite_steps.uses_steps(invitation)
+    assert invite_steps.uses_steps(invitation)
 
 
 def test_shared_invites_with_a_strong_password_server_are_refused(setup_done):

@@ -98,15 +98,9 @@ def multi_use(invitation: Invitation) -> bool:
     return bool(invitation.unlimited)
 
 
-def _email_to_prove(steps: list[Step], mailer) -> bool:
-    """An account step that asks for an email, with mail set up to check it."""
-    return mailer.is_configured() and any(
-        step.is_account and "email" in step.fields for step in steps
-    )
-
-
 def uses_steps(invitation: Invitation) -> bool:
-    """Whether this invite opens the checklist rather than a combined sign-up."""
+    """Whether this invite opens the checklist (all do, except an LDAP one
+    or one with nothing to set up)."""
     from app.services import mailer
     from app.services.ldap.invitation_ldap import InvitationLDAPHandler
 
@@ -117,13 +111,7 @@ def uses_steps(invitation: Invitation) -> bool:
         # People on a shared invite are told apart by an emailed code.
         if not steps or not mailer.is_configured():
             return False
-    elif (
-        len(steps) < 2
-        and not any(step.strong_password for step in steps)
-        and not _email_to_prove(steps, mailer)
-    ):
-        # One service with nothing to check keeps the plain sign-up. An account
-        # form that takes an email does not, when mail can send the code.
+    elif not steps:
         return False
     if invitation.create_ldap_user is True:
         return not InvitationLDAPHandler(invitation).should_create_ldap_user()
@@ -191,6 +179,20 @@ def server_states(
         invitation_id=invitation.id, person=person
     ).all()
     return {row.server_id: row.state for row in rows}
+
+
+def server_states_for(invitations: list[Invitation]) -> dict[int, dict[int, str]]:
+    """server_states for a page of invites in one query: {invite id: {server id: state}}."""
+    found: dict[int, dict[int, str]] = {}
+    if not invitations:
+        return found
+    rows = InvitationProgress.query.filter(
+        InvitationProgress.invitation_id.in_([inv.id for inv in invitations]),
+        InvitationProgress.person == SINGLE_PERSON,
+    ).all()
+    for row in rows:
+        found.setdefault(row.invitation_id, {})[row.server_id] = row.state
+    return found
 
 
 def welcome_due(invitation: Invitation, welcomed: list[str] | None) -> bool:

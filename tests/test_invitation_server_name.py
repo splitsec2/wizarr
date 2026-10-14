@@ -167,7 +167,15 @@ def mixed_server_invitation(app):
         return invitation
 
 
-def test_invitation_page_displays_server_name(client, test_invitation, test_server):
+@pytest.fixture
+def legacy_join(monkeypatch):
+    """The plain join page, still used by an LDAP invite or one with no steps."""
+    monkeypatch.setattr("app.services.invite_steps.uses_steps", lambda _inv: False)
+
+
+def test_invitation_page_displays_server_name(
+    client, test_invitation, test_server, legacy_join
+):
     """Test that invitation page displays the correct server name."""
 
     response = client.get(f"/j/{test_invitation.code}")
@@ -206,7 +214,9 @@ def test_invitation_with_legacy_server_field(client, legacy_server_invitation):
     assert "Legacy Server" in response_text
 
 
-def test_invitation_with_both_server_associations(client, mixed_server_invitation):
+def test_invitation_with_both_server_associations(
+    client, mixed_server_invitation, legacy_join
+):
     """Test invitation that has both legacy and new server associations."""
 
     response = client.get("/j/BOTHCODE12")

@@ -4,6 +4,7 @@ Working tests for the invitation flow system
 
 from unittest.mock import Mock, patch
 
+import pytest
 from flask import render_template, session
 
 from app.extensions import db
@@ -539,6 +540,11 @@ class TestIntegrationWithDatabase:
 
 
 class TestEndToEndFlow:
+    @pytest.fixture(autouse=True)
+    def _legacy_join(self, monkeypatch):
+        """These cover the plain join path, still used by an LDAP invite."""
+        monkeypatch.setattr("app.services.invite_steps.uses_steps", lambda _inv: False)
+
     """Test complete end-to-end flows"""
 
     @patch("app.services.invitation_flow.manager.is_invite_valid")
