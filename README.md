@@ -17,11 +17,12 @@ The Origin column says who wrote a change and where it stands upstream: **merged
 | An invite for several services is a checklist. Plex is one step and every other service shares one account step, each can be done or skipped, and the link picks up where it left off on another device | This fork. Fork only |
 | Shared invites: each person proves their email with a code, and each person has their own progress and their own row on the invite card | This fork. Fork only |
 | A service the person already has counts as done on the account step, so adding one more piece to someone who has two does not get stuck. Email matches ignore case | This fork. Fork only |
-| Create Invitation as four steps (Who, How long, What they get, Review), with Multi-use and Supporter options and a link expiry that defaults to a week | This fork. Fork only |
+| Create Invitation as four steps (Who, How long, What they get, Review), with Multi-use and Supporter options and a link expiry that defaults to a week. The Review step warns when nothing ends the access | This fork. Fork only |
 | "Who is this for" on an invite, kept with who created it | This fork. Fork only |
 | "Access ends on" date on an invite | This fork. Fork only |
 | Advice on the invite form for combinations that do not work (Plex mixed with services that skip the password step) | This fork. Fork only |
 | Server notes and links shown to the person once they are set up | This fork. Fork only |
+| A checklist invite opens on a welcome page first: the household name, who the invite is from, the pieces it covers and a Get started button | This fork. Fork only |
 | Share button beside Copy on a new invite | This fork. Not sent yet |
 | A Plex and Audiobookshelf invite gives the Audiobookshelf account the invite's libraries | This fork. Not sent yet |
 | The join page shows posters only from the invite's own servers | This fork. Not sent yet |
@@ -36,7 +37,9 @@ The Origin column says who wrote a change and where it stands upstream: **merged
 | Switch off and Switch on on the Users card, with a spinner while it runs, and a switched-off account's service pills struck through | This fork. Fork only |
 | A failed join shows as failed on both the invite card and the Users card | This fork. Fork only |
 | Deleting a user from one server keeps the row when that server did not confirm the delete | This fork, open upstream as [#1488](https://github.com/wizarrrr/wizarr/pull/1488) (issue [#1487](https://github.com/wizarrrr/wizarr/issues/1487)) |
-| Addresses on a protected list (Settings > General) are skipped by expiry and by invite redemption | This fork. Fork only |
+| Protected accounts: a Protected setting per person, and one check inside the service layer that refuses delete, switch off and remove for a protected account on the admin pages, the API and the expiry job. The refusal is logged and switching back on is never refused | This fork. Not sent yet |
+| Addresses on a protected list (Settings > General) are skipped by expiry and by invite redemption, and refused by the check above | This fork. Fork only |
+| Users cards: a red border when access ends within 30 days or has ended, a dashed amber one when nothing ends it | This fork. Fork only |
 | Library ticks: libraries found by a scan start unticked, and a Navidrome server's first scan ticks what Navidrome offers to new users | This fork. Fork only |
 
 ### Servers
@@ -54,7 +57,7 @@ The Origin column says who wrote a change and where it stands upstream: **merged
 | Change | Origin |
 |---|---|
 | Cloudflare Access signs in as your own admin account, with a Name on admin accounts, and a read-only Access status card on Settings > Admins | This fork. Fork only |
-| An audit log: one INFO line per account change, with who did it | This fork, open upstream as [#1489](https://github.com/wizarrrr/wizarr/pull/1489) |
+| An audit log: one INFO line per account change, with who did it | This fork, open upstream as [#1489](https://github.com/wizarrrr/wizarr/pull/1489). The rotating log file next to the database is fork only |
 | Enter on Settings > General saves instead of opening Create API Key | This fork, open upstream as [#1486](https://github.com/wizarrrr/wizarr/pull/1486) (issue [#1485](https://github.com/wizarrrr/wizarr/issues/1485)) |
 | `RATELIMIT_ENABLED`: limits per visitor, using the client address from upstream's `TRUST_PROXY_HEADERS` when behind a proxy | This fork. Not sent yet |
 
