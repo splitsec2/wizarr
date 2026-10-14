@@ -13,7 +13,10 @@
                class="sr-only link-check"
                name="uids"
                value="{{ user.id }}">
-        <label class="cursor-pointer block group transition-all duration-200 hover:shadow-md hover:-translate-y-1 animate__animated bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 relative user-card"
+        {# Access end: red border within 30 days, dashed amber when it never ends #}
+        {% set ends = user|expiry_state %}
+        <label class="cursor-pointer block group transition-all duration-200 hover:shadow-md hover:-translate-y-1 animate__animated bg-white dark:bg-gray-800 rounded-lg border relative user-card {% if ends == 'soon' %}border-2 border-red-500 dark:border-red-500{% elif ends == 'none' %}border-2 border-dashed border-amber-400 dark:border-amber-500{% else %}border-gray-200 dark:border-gray-700{% endif %}"
+               data-expiry="{{ ends }}"
                for="uid{{ user.id }}"
                data-user-id="{{ user.id }}">
           <!-- Card content -->

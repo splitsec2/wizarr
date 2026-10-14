@@ -609,3 +609,55 @@ def test_a_held_account_that_cannot_be_switched_on_stays_on_the_checklist(
     held = db.session.get(User, uid)
     assert held is not None
     assert held.is_disabled is True
+
+
+# ── how the Users card flags the access end ────────────────────────────────
+
+
+def _cards(client):
+    admin_client = client.application.test_client()
+    admin_client.post("/login", data={"username": "admin", "password": "password"})
+    html = admin_client.get("/users/table", headers={"HX-Request": "true"}).get_data(
+        as_text=True
+    )
+    return re.findall(r'data-expiry="(\w+)"', html), html
+
+
+def _expires(offset_days):
+    user = User.query.filter_by(username="plexsam").first()
+    assert user is not None
+    user.expires = (
+        None
+        if offset_days is None
+        else datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=offset_days)
+    )
+    db.session.commit()
+
+
+@pytest.mark.parametrize(
+    ("offset", "state", "border"),
+    [(None, "none", "border-dashed"), (10, "soon", "border-red-500"), (90, "ok", None)],
+)
+def test_the_card_border_shows_when_access_ends(
+    client, plex_abs, fake_plex, offset, state, border
+):
+    client.post("/j/STEPS123/steps/plex", data={"token": "t"})
+    _expires(offset)
+
+    states, html = _cards(client)
+
+    assert states and set(states) == {state}
+    if border:
+        assert border in html
+    else:
+        assert "border-red-500" not in html
+        assert "border-dashed" not in html
+
+
+def test_an_account_already_past_its_end_is_red_too(client, plex_abs, fake_plex):
+    client.post("/j/STEPS123/steps/plex", data={"token": "t"})
+    _expires(-3)
+
+    states, _html = _cards(client)
+
+    assert set(states) == {"soon"}
