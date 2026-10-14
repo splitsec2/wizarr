@@ -273,7 +273,9 @@ def test_invite_asks_for_an_email_and_one_strong_password(client, session, hook)
     server = _server()
     _single_use_invite(server)
 
-    assert client.get("/j/BOOKS0001").headers["Location"].endswith("/j/BOOKS0001/steps")
+    assert (
+        client.get("/j/BOOKS0001").headers["Location"].endswith("/j/BOOKS0001/welcome")
+    )
     gate = client.get("/j/BOOKS0001/steps/account")
     assert "/j/BOOKS0001/steps/email" in gate.headers["Location"]
     _verified(client, "BOOKS0001", "reader@example.com")
