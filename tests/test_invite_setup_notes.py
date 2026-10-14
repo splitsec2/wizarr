@@ -118,6 +118,9 @@ def test_the_last_page_names_pieces_without_a_note_and_clears_the_session(
     with client.session_transaction() as sess:
         sess["wizarr_invite_code"] = "NOTES123"
 
+    invitation.used = True  # a single-use invite is used up once they have joined
+    db.session.commit()
+
     html = _finish(client).get_data(as_text=True)
 
     assert "Also set up: ABS" in html
