@@ -510,7 +510,7 @@ def _tick_server_defaults(server: MediaServer) -> None:
     except Exception as exc:
         logging.warning("Could not read the server's default libraries: %s", exc)
         return
-    if wanted is None:
+    if not isinstance(wanted, set):
         return
     for obj in db.session.new:
         if isinstance(obj, Library) and obj.server_id == server.id:
