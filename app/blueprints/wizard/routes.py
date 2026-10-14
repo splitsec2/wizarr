@@ -714,20 +714,13 @@ def post_wizard(idx: int = 0):
                 return redirect(url_for("wizard.bundle_view", idx=idx))
 
             # Fork: each server can say what to do once set up (its note on the
-            # server's edit page). Show those first, then Wizarr's stock pages only
-            # for the servers this person set up that have no note.
+            # server's edit page). The notes show once, on the final page; Wizarr's
+            # stock pages cover only the set-up servers that have no note.
             from app.services import invite_steps
 
             servers = invite_steps.set_up_servers(
                 invitation, invite_steps.person_in_session(invitation)
             )
-            if (
-                any(invite_steps.has_note(s) for s in servers)
-                and session.get("wizard_notes_seen") != invitation.code
-            ):
-                return redirect(
-                    url_for("invite_steps.setup_page", code=invitation.code)
-                )
             had_servers = bool(servers)
             servers = [s for s in servers if not invite_steps.has_note(s)]
             if had_servers and not servers:
@@ -833,27 +826,40 @@ def post_wizard(idx: int = 0):
 
 @wizard_bp.route("/complete")
 def complete():
-    """Completion page shown after user finishes all wizard steps.
+    """The last page of an invite: what the person set up and how to start.
 
-    This endpoint provides a dedicated completion experience with:
-    - Success message confirming setup is complete
-    - Clear call-to-action to proceed to the application
-    - Automatic cleanup of all invitation-related session data
-    - Cookie with media server URL for login page redirect
+    Fork: shows household, one card per set-up server with its address and
+    note, and who to ask. Clears all invitation-related session data and sets
+    a cookie with the media server URL for the login page redirect. Without an
+    invitation in the session there is nothing to show, so it redirects home.
     """
-    # Grab media server URL before clearing session data
     invite_code = InviteCodeManager.get_invite_code()
     media_server_url = None
+    invitation = None
     if invite_code:
         _valid, invitation = InviteCodeManager.validate_invite_code(invite_code)
-        if invitation:
-            # Prefer multi-server list, fall back to single server
-            servers = invitation.servers or (
-                [invitation.server] if invitation.server else []
-            )
-            if servers:
-                srv = servers[0]  # type: ignore
-                media_server_url = srv.external_url or srv.url
+
+    page = None
+    if invitation:
+        from app.services import invite_steps
+        from app.services.server_name_resolver import resolve_invitation_server_name
+
+        # Prefer multi-server list, fall back to single server
+        all_servers = invitation.servers or (
+            [invitation.server] if invitation.server else []
+        )
+        if all_servers:
+            srv = all_servers[0]  # type: ignore
+            media_server_url = srv.external_url or srv.url
+        set_up = invite_steps.set_up_servers(
+            invitation, invite_steps.person_in_session(invitation)
+        )
+        page = render_template(
+            "invite-complete.html",
+            household=resolve_invitation_server_name(list(all_servers)),
+            servers=[s for s in set_up if invite_steps.has_note(s)],
+            other_names=[s.name for s in set_up if not invite_steps.has_note(s)],
+        )
 
     # Clear all invitation-related session data
     InviteCodeManager.clear_invite_data()
@@ -861,11 +867,11 @@ def complete():
     session.pop("wizard_server_order", None)
     session.pop("wizard_bundle_id", None)
 
-    # Show success message
-    flash(_("Setup complete! Welcome to your media server."), "success")
-
-    # Redirect to home page (which will redirect to admin dashboard)
-    resp = redirect(url_for("public.root"))
+    if page is None:
+        flash(_("Setup complete! Welcome to your media server."), "success")
+        resp = redirect(url_for("public.root"))
+    else:
+        resp = make_response(page)
 
     # Set a long-lived cookie so the login page can offer a media server link
     if media_server_url:

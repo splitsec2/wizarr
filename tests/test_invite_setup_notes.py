@@ -1,9 +1,8 @@
 """Each server's "After sign-up, tell them" note is the setup help.
 
-It shows after the step that set the server up (Plex included), on a
-"Getting started" page that the post-join wizard opens first, for the
-servers this person actually set up, and Wizarr's stock setup pages only
-cover set-up servers that have no note.
+After a step its page shows the server's address, and the note waits for the
+last page ("You're all set"), where each set-up server with a note gets one
+card. Wizarr's stock setup pages only cover set-up servers that have no note.
 """
 
 import pytest
@@ -52,8 +51,11 @@ def test_links_are_made_and_html_is_escaped():
     assert "&lt;b&gt;hi&lt;/b&gt;" in html
 
 
-def test_plex_step_shows_its_servers_notes(client, setup_done, monkeypatch):
+def test_plex_step_shows_the_address_and_leaves_the_note_for_the_last_page(
+    client, setup_done, monkeypatch
+):
     atp = _server("AllThePopcorn", "plex", "Install Plex, then open AllThePopcorn.")
+    atp.external_url = "https://plex.example.com"
     abs_server = _server("ABS", "audiobookshelf")
     _invite(atp, abs_server)
 
@@ -69,16 +71,16 @@ def test_plex_step_shows_its_servers_notes(client, setup_done, monkeypatch):
     html = client.post("/j/NOTES123/steps/plex", data={"token": "t"}).get_data(
         as_text=True
     )
-    assert "Install Plex, then open AllThePopcorn." in html
+    assert "plex.example.com" in html
+    assert "Install Plex, then open AllThePopcorn." not in html
     assert "Back to your checklist" in html
 
 
-def test_getting_started_needs_this_invites_wizard_access(client, setup_done):
-    _invite(_server("A", "audiobookshelf", "note"))
-    assert "Invalid invite" in client.get("/j/NOTES123/setup").get_data(as_text=True)
+def _finish(client, code="NOTES123"):
+    return client.get("/wizard/complete")
 
 
-def test_getting_started_lists_only_what_was_set_up(client, setup_done):
+def test_the_last_page_shows_each_set_up_note_once(client, setup_done):
     atp = _server("AllThePopcorn", "plex", "ATP help")
     music = _server("Timevortex", "plex", "Music help")
     abs_server = _server("ABS", "audiobookshelf", "ABS help")
@@ -90,16 +92,40 @@ def test_getting_started_lists_only_what_was_set_up(client, setup_done):
     assert account is not None
     invite_steps.record(invitation, account, "skipped")
     _wizard_access(client)
+    with client.session_transaction() as sess:
+        sess["wizarr_invite_code"] = "NOTES123"
 
-    html = client.get("/j/NOTES123/setup").get_data(as_text=True)
+    html = _finish(client).get_data(as_text=True)
 
-    assert "ATP help" in html
-    assert "Music help" in html
+    assert "You&#39;re all set" in html or "You're all set" in html
+    assert html.count("ATP help") == 1
+    assert html.count("Music help") == 1
     assert "ABS help" not in html
-    assert ">Done<" in html.replace("\n", "").replace(" ", "")
+    assert "ask the person who sent you this invite" in html
 
 
-def test_the_wizard_opens_the_notes_first_then_only_stock_pages_without(
+def test_the_last_page_names_pieces_without_a_note_and_clears_the_session(
+    client, setup_done
+):
+    atp = _server("AllThePopcorn", "plex", "ATP help")
+    abs_server = _server("ABS", "audiobookshelf")
+    invitation = _invite(atp, abs_server)
+    for key in ("plex", "account"):
+        step = invite_steps.find_step(invitation, key)
+        assert step is not None
+        invite_steps.record(invitation, step, "done")
+    _wizard_access(client)
+    with client.session_transaction() as sess:
+        sess["wizarr_invite_code"] = "NOTES123"
+
+    html = _finish(client).get_data(as_text=True)
+
+    assert "Also set up: ABS" in html
+    with client.session_transaction() as sess:
+        assert "wizard_access" not in sess
+
+
+def test_the_wizard_skips_the_notes_and_goes_to_stock_pages_for_the_rest(
     client, setup_done
 ):
     atp = _server("AllThePopcorn", "plex", "ATP help")
@@ -111,25 +137,24 @@ def test_the_wizard_opens_the_notes_first_then_only_stock_pages_without(
         invite_steps.record(invitation, step, "done")
     _wizard_access(client)
 
-    first = client.get("/wizard/post-wizard")
-    assert first.headers["Location"].endswith("/j/NOTES123/setup")
-    page = client.get("/j/NOTES123/setup").get_data(as_text=True)
-    assert "More setup help" in page
+    resp = client.get("/wizard/post-wizard")
 
-    second = client.get("/wizard/post-wizard")
-    assert "/j/NOTES123/setup" not in second.headers.get("Location", "")
-    with client.session_transaction() as sess:
-        assert sess.get("wizard_notes_seen") == "NOTES123"
+    assert "/setup" not in resp.headers.get("Location", "")
 
 
-def test_when_every_server_has_a_note_the_wizard_ends_after_them(client, setup_done):
+def test_when_every_server_has_a_note_the_wizard_goes_to_the_last_page(
+    client, setup_done
+):
     atp = _server("AllThePopcorn", "plex", "ATP help")
     invitation = _invite(atp, code="ONLYATP1")
     _wizard_access(client, "ONLYATP1")
     assert not invite_steps.uses_steps(invitation)
 
-    first = client.get("/wizard/post-wizard")
-    assert first.headers["Location"].endswith("/j/ONLYATP1/setup")
-    client.get("/j/ONLYATP1/setup")
-    second = client.get("/wizard/post-wizard")
-    assert second.headers["Location"].endswith("/wizard/complete")
+    resp = client.get("/wizard/post-wizard")
+
+    assert resp.headers["Location"].endswith("/wizard/complete")
+
+
+def test_the_last_page_without_an_invite_goes_home(client, setup_done):
+    resp = client.get("/wizard/complete")
+    assert resp.status_code == 302
