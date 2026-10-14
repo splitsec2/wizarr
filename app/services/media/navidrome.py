@@ -460,7 +460,10 @@ class NavidromeClient(RestApiMixin):
             return False, "Server configuration error"
 
         existing = User.query.filter(
-            or_(User.username == username, func.lower(User.email) == (email or "").lower()),
+            or_(
+                User.username == username,
+                func.lower(User.email) == (email or "").lower(),
+            ),
             User.server_id == server_id,
         ).first()
         if existing:
