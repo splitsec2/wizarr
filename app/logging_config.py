@@ -79,8 +79,38 @@ LOGGING_CONFIG = {
 }
 
 
+# The audit trail also goes to a rotating file, so it outlives the container.
+# The default sits on the volume the database uses; "off" turns it off.
+AUDIT_LOG_DEFAULT = "/data/database/audit/audit.log"
+
+
+def _add_audit_file() -> None:
+    path = os.getenv("WIZARR_AUDIT_LOG", AUDIT_LOG_DEFAULT).strip()
+    if path.lower() in ("", "off"):
+        return
+    try:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        Path(path).open("a", encoding="utf-8").close()
+    except OSError as exc:
+        print(f"Audit log file {path} is not writable: {exc}", file=sys.stderr)
+        return
+    cast(dict[str, Any], LOGGING_CONFIG["handlers"])["audit_file"] = {
+        "class": "logging.handlers.RotatingFileHandler",
+        "filename": path,
+        "maxBytes": 5_000_000,
+        "backupCount": 10,
+        "encoding": "utf-8",
+        "formatter": "default",
+        "level": "INFO",
+    }
+    audit = cast(dict[str, Any], LOGGING_CONFIG["loggers"])["wizarr.audit"]
+    if "audit_file" not in audit["handlers"]:
+        audit["handlers"] = [*audit["handlers"], "audit_file"]
+
+
 def configure_logging() -> None:
     """Call this once at start-up."""
+    _add_audit_file()
     handlers = cast(dict[str, Any], LOGGING_CONFIG.get("handlers", {}))
     if "file" in handlers:
         file_handler = cast(dict[str, Any], handlers["file"])
