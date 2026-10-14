@@ -561,6 +561,7 @@ def test_a_switched_off_held_account_is_renewed_and_switched_on(
     client.post("/j/STEPS123/steps/account", data=_account_form("listener@example.com"))
 
     user = db.session.get(User, uid)
+    assert user is not None
     assert user.is_disabled is False
     ends = user.expires.replace(tzinfo=datetime.UTC)
     assert ends > datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=29)
@@ -581,6 +582,8 @@ def test_an_expired_but_not_yet_disabled_held_account_gets_the_new_end(
     client.post("/j/STEPS123/steps/account", data=_account_form("listener@example.com"))
 
     user = db.session.get(User, uid)
+    assert user is not None
+    assert user.expires is not None
     assert user.expires.replace(tzinfo=datetime.UTC) > datetime.datetime.now(
         datetime.UTC
     )
@@ -598,8 +601,11 @@ def test_a_held_account_that_cannot_be_switched_on_stays_on_the_checklist(
     _holds(abs_server, "listener@example.com")
     uid = _lapse(abs_server, "listener@example.com", disabled=True)
     step = invite_steps.find_step(invitation, "account")
+    assert step is not None
 
     invite_steps.record_held(invitation, step, "", "listener@example.com")
 
     assert _states(invitation) == {}
-    assert db.session.get(User, uid).is_disabled is True
+    held = db.session.get(User, uid)
+    assert held is not None
+    assert held.is_disabled is True
