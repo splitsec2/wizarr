@@ -115,3 +115,11 @@ def test_a_shared_invite_is_called_multi_use(client, session):
     assert "Multi-use invite" in html
     assert "Unlimited Usages" not in html
     assert "Leave How many people empty for no limit, which is not recommended." in html
+
+
+def test_the_review_step_warns_when_nothing_ends(client, session):
+    _admin_with_servers(client, session)
+    html = _dialog(client)
+    assert 'id="invite-no-end-warning"' in html
+    assert "Nothing on this invite ends" in html
+    assert html.index('id="invite-review"') < html.index('id="invite-no-end-warning"')

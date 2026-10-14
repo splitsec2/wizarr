@@ -412,6 +412,12 @@
                 <dl id="invite-review"
                     class="divide-y divide-gray-200 text-sm dark:divide-gray-700">
                 </dl>
+                <p id="invite-no-end-warning"
+                   role="alert"
+                   hidden
+                   class="rounded-lg border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500 dark:bg-amber-900/20 dark:text-amber-200">
+                  {{ _("Nothing on this invite ends. The accounts it makes will stay until you remove them. Go back to How long if that is not what you want.") }}
+                </p>
                 <details class="rounded-lg border border-gray-200 p-3 dark:border-gray-700"
                          id="more-options">
                   <summary class="cursor-pointer text-sm font-medium text-secondary dark:text-primary">{{ _("More options") }}</summary>
@@ -689,6 +695,11 @@
             if (days) access = days + " " + {{ _("days after they join") | tojson }};
             if (end) access = {{ _("Through") | tojson }} + " " + end;
             rows.push([{{ _("Access") | tojson }}, access]);
+            const endsSomewhere = Array.from(serversChosen()).some((c) => {
+                const own = el("access_ends_on_" + c.value);
+                return own && own.value;
+            });
+            setShown(el("invite-no-end-warning"), !days && !end && !endsSomewhere);
             const box = el("invite-review");
             box.replaceChildren();
             rows.forEach(([k, v]) => {
