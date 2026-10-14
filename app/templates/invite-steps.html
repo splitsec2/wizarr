@@ -1,7 +1,7 @@
 {# The invite checklist: one step per service, each done, skipped or to do. #}
 {% extends "base.html" %}
 {% block title %}
-  {{ _("Set up your access") }}
+  {{ _("Set up your access to %(name)s", name=household) }}
 {% endblock title %}
 {% block main %}
   <section class="py-5 bg-gray-50 dark:bg-gray-900">
@@ -9,7 +9,7 @@
       <div class="w-full bg-white rounded-lg shadow dark:border dark:bg-gray-800 dark:border-gray-700">
         <div class="p-6 space-y-4 sm:p-8">
           <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
-            {{ _("Set up your access") }}
+            {{ _("Set up your access to %(name)s", name=household) }}
           </h1>
           <p class="text-sm text-gray-600 dark:text-gray-400">
             {{ _("Your invite includes these services. Set them up one at a time. You can skip one and come back to this link later.") }}

@@ -41,6 +41,8 @@ ACCOUNT_STEP = "account"
 SINGLE_PERSON = ""
 # Browser session key: {invite code (lowercase): email this browser proved}.
 VERIFIED_SESSION_KEY = "invite_steps_verified"
+# Browser session key: invite codes (lowercase) whose welcome this browser has seen.
+WELCOMED_SESSION_KEY = "invite_steps_welcomed"
 
 
 @dataclass(frozen=True)
@@ -189,6 +191,18 @@ def server_states(
         invitation_id=invitation.id, person=person
     ).all()
     return {row.server_id: row.state for row in rows}
+
+
+def welcome_due(invitation: Invitation, welcomed: list[str] | None) -> bool:
+    """Whether this browser should see the welcome before the checklist.
+
+    Not once it has seen it, and not on a single-use invite that already has
+    progress (a return visit). A shared invite has no one person to look up
+    before the emailed code, so only the browser's own record counts there.
+    """
+    if invitation.code.lower() in (welcomed or []):
+        return False
+    return multi_use(invitation) or not server_states(invitation)
 
 
 def state_of(step: Step, states: dict[int, str]) -> str | None:
