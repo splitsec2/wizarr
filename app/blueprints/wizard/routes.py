@@ -713,18 +713,14 @@ def post_wizard(idx: int = 0):
                 session["wizard_bundle_id"] = invitation.wizard_bundle_id
                 return redirect(url_for("wizard.bundle_view", idx=idx))
 
-            # Fork: each server can say what to do once set up (its note on the
-            # server's edit page). The notes show once, on the final page; Wizarr's
-            # stock pages cover only the set-up servers that have no note.
+            # Fork: the stock pages show for every set-up server, then the final
+            # page. What a person reads is in Wizard Steps; a server's note is for
+            # the admin and never shown here.
             from app.services import invite_steps
 
             servers = invite_steps.set_up_servers(
                 invitation, invite_steps.person_in_session(invitation)
             )
-            had_servers = bool(servers)
-            servers = [s for s in servers if not invite_steps.has_note(s)]
-            if had_servers and not servers:
-                return redirect(url_for("wizard.complete"))
 
             # Priority 2: Check legacy single server relationship
             if not servers and hasattr(invitation, "server") and invitation.server:

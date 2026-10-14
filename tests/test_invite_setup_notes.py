@@ -1,8 +1,9 @@
-"""Each server's "After sign-up, tell them" note is the setup help.
+"""A server's note is for admins; what a person reads is in Wizard Steps.
 
-After a step its page shows the server's address, and the note waits for the
-last page ("You're all set"), where each set-up server with a note gets one
-card. Wizarr's stock setup pages only cover set-up servers that have no note.
+After a step its page shows the server's address. The last page ("You're all
+set") gives each set-up server with an address one card. The note is never
+shown to the person, and the wizard shows the stock pages for every set-up
+server.
 """
 
 import pytest
@@ -51,7 +52,7 @@ def test_links_are_made_and_html_is_escaped():
     assert "&lt;b&gt;hi&lt;/b&gt;" in html
 
 
-def test_plex_step_shows_the_address_and_leaves_the_note_for_the_last_page(
+def test_plex_step_shows_the_address_and_never_the_note(
     client, setup_done, monkeypatch
 ):
     atp = _server("AllThePopcorn", "plex", "Install Plex, then open AllThePopcorn.")
@@ -80,17 +81,19 @@ def _finish(client, code="NOTES123"):
     return client.get("/wizard/complete")
 
 
-def test_the_last_page_shows_each_set_up_note_once(client, setup_done):
+def test_the_last_page_shows_each_address_once_and_never_the_note(client, setup_done):
     atp = _server("AllThePopcorn", "plex", "ATP help")
+    atp.external_url = "https://atp.example"
     music = _server("Timevortex", "plex", "Music help")
     abs_server = _server("ABS", "audiobookshelf", "ABS help")
+    abs_server.external_url = "https://abs.example"
     invitation = _invite(atp, music, abs_server)
     plex_step = invite_steps.find_step(invitation, "plex")
     assert plex_step is not None
     invite_steps.record(invitation, plex_step, "done")
     account = invite_steps.find_step(invitation, "account")
     assert account is not None
-    invite_steps.record(invitation, account, "skipped")
+    invite_steps.record(invitation, account, "done")
     _wizard_access(client)
     with client.session_transaction() as sess:
         sess["wizarr_invite_code"] = "NOTES123"
@@ -98,16 +101,20 @@ def test_the_last_page_shows_each_set_up_note_once(client, setup_done):
     html = _finish(client).get_data(as_text=True)
 
     assert "You&#39;re all set" in html or "You're all set" in html
-    assert html.count("ATP help") == 1
-    assert html.count("Music help") == 1
+    assert html.count("https://atp.example") >= 1
+    assert "https://abs.example" in html
+    assert "ATP help" not in html
+    assert "Music help" not in html
     assert "ABS help" not in html
+    assert "Also set up: Timevortex" in html
     assert "ask the person who sent you this invite" in html
 
 
-def test_the_last_page_names_pieces_without_a_note_and_clears_the_session(
+def test_the_last_page_names_pieces_without_an_address_and_clears_the_session(
     client, setup_done
 ):
-    atp = _server("AllThePopcorn", "plex", "ATP help")
+    atp = _server("AllThePopcorn", "plex")
+    atp.external_url = "https://atp.example"
     abs_server = _server("ABS", "audiobookshelf")
     invitation = _invite(atp, abs_server)
     for key in ("plex", "account"):
@@ -128,7 +135,7 @@ def test_the_last_page_names_pieces_without_a_note_and_clears_the_session(
         assert "wizard_access" not in sess
 
 
-def test_the_wizard_skips_the_notes_and_goes_to_stock_pages_for_the_rest(
+def test_the_wizard_goes_to_the_stock_pages_even_when_a_server_has_a_note(
     client, setup_done
 ):
     atp = _server("AllThePopcorn", "plex", "ATP help")
@@ -142,20 +149,8 @@ def test_the_wizard_skips_the_notes_and_goes_to_stock_pages_for_the_rest(
 
     resp = client.get("/wizard/post-wizard")
 
-    assert "/setup" not in resp.headers.get("Location", "")
-
-
-def test_when_every_server_has_a_note_the_wizard_goes_to_the_last_page(
-    client, setup_done
-):
-    atp = _server("AllThePopcorn", "plex", "ATP help")
-    invitation = _invite(atp, code="ONLYATP1")
-    _wizard_access(client, "ONLYATP1")
-    assert not invite_steps.uses_steps(invitation)
-
-    resp = client.get("/wizard/post-wizard")
-
-    assert resp.headers["Location"].endswith("/wizard/complete")
+    assert resp.status_code == 302
+    assert not resp.headers["Location"].endswith("/wizard/complete")
 
 
 def test_the_last_page_without_an_invite_goes_home(client, setup_done):

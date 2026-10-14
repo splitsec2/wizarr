@@ -14,7 +14,7 @@
           {% if "password" in step.fields %}
             <p class="text-sm text-gray-700 dark:text-gray-300">{{ _("Sign in with the details you just chose.") }}</p>
           {% endif %}
-          {% with servers=step.servers, show_notes=false %}
+          {% with servers=step.servers %}
             {% include "_server_notes.html" %}
           {% endwith %}
           <a href="{{ back_url }}"
