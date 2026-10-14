@@ -269,6 +269,13 @@ def _account_step(invitation, step):
     person = _person(invitation)
     verified = _verified_email(invitation) or ""
     if request.method == "GET":
+        invite_steps.record_held(invitation, step, person, verified)
+        if (
+            invite_steps.state_of(step, invite_steps.server_states(invitation, person))
+            == invite_steps.DONE
+        ):
+            _mark_done(invitation, step)
+            return redirect(_checklist_url(invitation))
         earlier = (
             invite_steps.earlier_account(invitation, person)
             if session.get(_DID_A_STEP) == invitation.code
@@ -295,6 +302,7 @@ def _account_step(invitation, step):
         "code": invitation.code,
     }
     failed = []
+    invite_steps.record_held(invitation, step, person, values["email"])
     with _one_at_a_time(f"{invitation.code.lower()}:{person}"):
         # Each server is checked again right before its account is made and
         # marked done right after, so a retry (or a second submit that waited
