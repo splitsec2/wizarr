@@ -655,3 +655,82 @@ def test_someone_elses_account_is_not_held(client, abs_books, fake_media):
     _verified(client, "STEPS123", "listener@example.com")
     client.post("/j/STEPS123/steps/account", data=_account_form("listener@example.com"))
     assert set(fake_media) == {abs_server.id, _books.id}
+
+
+def _lapse(server, email, *, disabled, days_ago=3):
+    user = User.query.filter(User.server_id == server.id, User.email == email).one()
+    user.is_disabled = disabled
+    user.expires = datetime.datetime.now(datetime.UTC) - datetime.timedelta(
+        days=days_ago
+    )
+    db.session.commit()
+    return user.id
+
+
+@pytest.fixture
+def enable_ok(monkeypatch):
+    from unittest.mock import Mock
+
+    remote = Mock()
+    remote.enable_user.return_value = True
+    monkeypatch.setattr(
+        "app.services.media.service.get_client_for_media_server", lambda _s: remote
+    )
+    return remote
+
+
+def test_a_switched_off_held_account_is_renewed_and_switched_on(
+    client, abs_books, fake_media, enable_ok
+):
+    invitation, abs_server, books = abs_books
+    invitation.duration = "30"
+    db.session.commit()
+    _holds(abs_server, "listener@example.com")
+    uid = _lapse(abs_server, "listener@example.com", disabled=True)
+    _verified(client, "STEPS123", "listener@example.com")
+
+    client.post("/j/STEPS123/steps/account", data=_account_form("listener@example.com"))
+
+    user = db.session.get(User, uid)
+    assert user.is_disabled is False
+    ends = user.expires.replace(tzinfo=datetime.UTC)
+    assert ends > datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=29)
+    enable_ok.enable_user.assert_called_once()
+    assert _states(invitation) == {abs_server.id: "done", books.id: "done"}
+
+
+def test_an_expired_but_not_yet_disabled_held_account_gets_the_new_end(
+    client, abs_books, fake_media, enable_ok
+):
+    invitation, abs_server, _books = abs_books
+    invitation.duration = "30"
+    db.session.commit()
+    _holds(abs_server, "listener@example.com")
+    uid = _lapse(abs_server, "listener@example.com", disabled=False)
+    _verified(client, "STEPS123", "listener@example.com")
+
+    client.post("/j/STEPS123/steps/account", data=_account_form("listener@example.com"))
+
+    user = db.session.get(User, uid)
+    assert user.expires.replace(tzinfo=datetime.UTC) > datetime.datetime.now(
+        datetime.UTC
+    )
+    enable_ok.enable_user.assert_not_called()
+    assert _states(invitation)[abs_server.id] == "done"
+
+
+def test_a_held_account_that_cannot_be_switched_on_stays_on_the_checklist(
+    abs_books, enable_ok
+):
+    invitation, abs_server, books = abs_books
+    invitation.duration = "30"
+    db.session.commit()
+    enable_ok.enable_user.return_value = False
+    _holds(abs_server, "listener@example.com")
+    uid = _lapse(abs_server, "listener@example.com", disabled=True)
+    step = invite_steps.find_step(invitation, "account")
+
+    invite_steps.record_held(invitation, step, "", "listener@example.com")
+
+    assert _states(invitation) == {}
+    assert db.session.get(User, uid).is_disabled is True
