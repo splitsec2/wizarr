@@ -346,8 +346,8 @@ def person_in_session(invitation: Invitation) -> str:
 
 
 def has_note(server: MediaServer) -> bool:
-    """Whether the server says anything to the person once they are set up."""
-    return bool(server.external_url or server.invitee_notes)
+    """Whether the server has an address to show the person once they are set up."""
+    return bool(server.external_url)
 
 
 def set_up_servers(

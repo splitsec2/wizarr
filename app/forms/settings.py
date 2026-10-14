@@ -46,7 +46,7 @@ class SettingsForm(FlaskForm):
     discord_id = StringField(str(_l("Discord ID")), validators=[Optional()])
     external_url = StringField(str(_l("External URL")), validators=[Optional()])
     invitee_notes = TextAreaField(
-        str(_l("After sign-up, tell them")), validators=[Optional()]
+        str(_l("Notes for admins: what this server is")), validators=[Optional()]
     )
 
     # Universal download and live TV options (no longer server-specific)

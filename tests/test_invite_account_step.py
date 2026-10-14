@@ -61,6 +61,7 @@ def _invite(*servers, code="BOOKS123"):
 def abs_books(setup_done):
     abs_server = _server("AudioBookShelf", "audiobookshelf", "https://abs.example")
     books = _server("Books", "provisioning_hook")
+    books.external_url = "https://books.example"
     books.invitee_notes = "KOReader catalog: https://books.example/opds"
     db.session.commit()
     return _invite(abs_server, books), abs_server, books
@@ -249,8 +250,8 @@ def test_one_submit_makes_both_accounts(client, abs_books, fake_media):
     assert GOOD not in html
     client.post("/j/BOOKS123/steps/finish")  # Continue opens the wizard
     last = client.get("/wizard/complete").get_data(as_text=True)
-    assert "KOReader catalog:" in last
-    assert 'href="https://books.example/opds"' in last
+    assert 'href="https://books.example"' in last
+    assert "KOReader catalog:" not in last  # the note is for admins
 
 
 def test_a_retry_only_makes_what_is_missing(client, abs_books, fake_media):
