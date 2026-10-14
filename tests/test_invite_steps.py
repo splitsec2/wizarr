@@ -157,10 +157,10 @@ def test_unlimited_and_single_service_invites_keep_their_flow(setup_done):
     )
 
 
-def test_link_opens_the_checklist(client, plex_abs):
+def test_link_opens_the_welcome_first(client, plex_abs):
     resp = client.get("/j/STEPS123")
     assert resp.status_code == 302
-    assert resp.headers["Location"].endswith("/j/STEPS123/steps")
+    assert resp.headers["Location"].endswith("/j/STEPS123/welcome")
 
 
 def test_unlimited_link_does_not(client, setup_done):
@@ -792,3 +792,84 @@ def test_an_account_already_past_its_end_is_red_too(client, plex_abs, fake_plex)
     states, _html = _cards(client)
 
     assert set(states) == {"soon"}
+
+
+# ── the welcome ─────────────────────────────────────────────────────────────
+
+
+def test_welcome_names_the_household_and_the_pieces(client, plex_abs):
+    html = client.get("/j/STEPS123/welcome").get_data(as_text=True)
+    assert "invited to join the" in html
+    assert "AllThePopcorn" in html and "AudioBookShelf" in html
+    assert "Get started" in html
+    assert "invite-welcome-inviter" not in html
+
+
+def test_welcome_uses_the_household_display_name(client, plex_abs):
+    db.session.add(Settings(key="server_name", value="Martin House"))
+    db.session.commit()
+    html = client.get("/j/STEPS123/welcome").get_data(as_text=True)
+    assert "join the Martin House server" in html
+    steps = client.get("/j/STEPS123/steps").get_data(as_text=True)
+    assert "Set up your access to Martin House" in steps
+
+
+def test_welcome_says_who_it_is_from(client, plex_abs):
+    invitation, _plex, _abs = plex_abs
+    invitation.paid_by = "Alex"
+    db.session.commit()
+    html = client.get("/j/STEPS123/welcome").get_data(as_text=True)
+    assert "Part of Alex" in html
+
+
+def test_welcome_names_the_admin_who_made_it_when_they_have_a_nickname(
+    client, plex_abs
+):
+    invitation, _plex, _abs = plex_abs
+    admin = AdminAccount.query.first()
+    admin.display_name = "Rob"
+    invitation.created_by = admin
+    db.session.commit()
+    html = client.get("/j/STEPS123/welcome").get_data(as_text=True)
+    assert "Invited by Rob" in html
+
+
+def test_get_started_goes_to_the_checklist_and_the_link_then_skips_the_welcome(
+    client, plex_abs
+):
+    resp = client.post("/j/STEPS123/welcome")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/j/STEPS123/steps")
+    again = client.get("/j/STEPS123")
+    assert again.headers["Location"].endswith("/j/STEPS123/steps")
+
+
+def test_a_return_visit_with_progress_skips_the_welcome(client, plex_abs, fake_plex):
+    client.post("/j/STEPS123/steps/plex", data={"token": "t"})
+    fresh = client.application.test_client()
+    resp = fresh.get("/j/STEPS123")
+    assert resp.headers["Location"].endswith("/j/STEPS123/steps")
+
+
+def test_a_shared_invite_shows_the_welcome_before_the_emailed_code(
+    client, setup_done, mail_ready
+):
+    _invite(_server("P", "plex"), _server("A", "audiobookshelf"), unlimited=True)
+    resp = client.get("/j/STEPS123")
+    assert resp.headers["Location"].endswith("/j/STEPS123/welcome")
+    started = client.post("/j/STEPS123/welcome")
+    assert started.headers["Location"].endswith("/j/STEPS123/steps")
+    gate = client.get("/j/STEPS123/steps")
+    assert "/email" in gate.headers["Location"]
+
+
+@pytest.mark.parametrize("path", ["/j/NOPE0000/welcome", "/j/EXPIRED1/welcome"])
+def test_welcome_refuses_unknown_and_expired_invites(client, setup_done, path):
+    past = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=1)
+    _invite(
+        _server("P", "plex"),
+        _server("A", "audiobookshelf"),
+        code="EXPIRED1",
+        expires=past,
+    )
+    assert "Invalid invite" in client.get(path).get_data(as_text=True)

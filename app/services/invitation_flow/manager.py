@@ -282,12 +282,18 @@ class InvitationFlowManager:
             or (finished_only and not invitation.used)
         ):
             return None
+        welcome = not finished_only and invite_steps.welcome_due(
+            invitation, session.get(invite_steps.WELCOMED_SESSION_KEY)
+        )
         return InvitationResult(
             status=ProcessingStatus.REDIRECT_REQUIRED,
             message="Invite checklist",
             successful_servers=[],
             failed_servers=[],
-            redirect_url=url_for("invite_steps.checklist", code=invitation.code),
+            redirect_url=url_for(
+                "invite_steps.welcome" if welcome else "invite_steps.checklist",
+                code=invitation.code,
+            ),
         )
 
     def _create_error_result(self, message: str) -> InvitationResult:

@@ -135,6 +135,45 @@ def _has_notes(step) -> bool:
     return any(invite_steps.has_note(s) for s in step.servers)
 
 
+def _household(invitation) -> str:
+    from app.services.server_name_resolver import resolve_invitation_server_name
+
+    return resolve_invitation_server_name(list(invitation.servers or []))
+
+
+def _inviter_line(invitation) -> str | None:
+    """Who the invite comes from, in words, when it says."""
+    if invitation.paid_by:
+        return _("Part of %(name)s's support.", name=invitation.paid_by)
+    creator = invitation.created_by
+    if creator is not None and creator.display_name:
+        return _("Invited by %(name)s.", name=creator.display_name)
+    return None
+
+
+@invite_steps_bp.route("/j/<code>/welcome", methods=["GET", "POST"])
+@limiter.limit("50 per minute")
+def welcome(code):
+    """The first page of a checklist invite: who it is from and what it covers."""
+    invitation = _load(code)
+    if invitation is None:
+        return _invalid()
+    if request.method == "POST":
+        seen = list(session.get(invite_steps.WELCOMED_SESSION_KEY) or [])
+        if invitation.code.lower() not in seen:
+            seen.append(invitation.code.lower())
+        session[invite_steps.WELCOMED_SESSION_KEY] = seen
+        return redirect(_checklist_url(invitation))
+    InviteCodeManager.store_invite_code(invitation.code)
+    return render_template(
+        "invite-welcome.html",
+        invitation=invitation,
+        household=_household(invitation),
+        inviter=_inviter_line(invitation),
+        steps=invite_steps.steps_for(invitation),
+    )
+
+
 @invite_steps_bp.route("/j/<code>/steps")
 @limiter.limit("50 per minute")
 def checklist(code):
@@ -153,6 +192,7 @@ def checklist(code):
     return render_template(
         "invite-steps.html",
         invitation=invitation,
+        household=_household(invitation),
         steps=steps,
         next_step=next_step,
         all_finished=next_step is None,
