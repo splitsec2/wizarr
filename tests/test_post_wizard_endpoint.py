@@ -243,7 +243,7 @@ class TestPostWizardCompletion:
 
         # Follow redirect to completion page to verify data is cleared
         response = client.get("/wizard/complete", follow_redirects=False)
-        assert response.status_code == 302  # Redirects to home page
+        assert response.status_code == 200  # The "You're all set" page
 
         # Verify invite data is cleared after visiting completion page
         with client.session_transaction() as sess:

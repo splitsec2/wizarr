@@ -515,30 +515,3 @@ def verify_code(code):
         email=email,
         error=error,
     )
-
-
-# ── After joining: what each service the person set up says about it ────────
-
-
-@invite_steps_bp.route("/j/<code>/setup")
-@limiter.limit("50 per minute")
-def setup_page(code):
-    """The notes of every server this person set up, before Wizarr's stock
-    setup pages, which only cover the servers without a note."""
-    invitation = invite_steps.find_invitation(code)
-    if invitation is None or (session.get("wizard_access") or "").lower() != (
-        invitation.code.lower()
-    ):
-        return _invalid()
-    servers = invite_steps.set_up_servers(invitation, _person(invitation))
-    session["wizard_notes_seen"] = invitation.code
-    without_note = [s for s in servers if not invite_steps.has_note(s)]
-    return render_template(
-        "invite-setup.html",
-        invitation=invitation,
-        servers=[s for s in servers if invite_steps.has_note(s)],
-        more_help=bool(without_note),
-        next_url=url_for("wizard.post_wizard")
-        if without_note
-        else url_for("wizard.complete"),
-    )
