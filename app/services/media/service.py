@@ -500,6 +500,23 @@ def scan_libraries_for_server(server: MediaServer) -> tuple[Any, bool]:
     return scan_result, client.libraries_scan_authoritative(scan_result)
 
 
+def _tick_server_defaults(server: MediaServer) -> None:
+    """On a server's first scan, tick exactly the libraries the server itself offers to
+    new users (Navidrome's defaultNewUsers), where it has such a setting."""
+    from app.models import Library
+
+    try:
+        wanted = get_client_for_media_server(server).default_library_ids()
+    except Exception as exc:
+        logging.warning("Could not read the server's default libraries: %s", exc)
+        return
+    if wanted is None:
+        return
+    for obj in db.session.new:
+        if isinstance(obj, Library) and obj.server_id == server.id:
+            obj.enabled = str(obj.external_id) in wanted
+
+
 def upsert_scanned_libraries(
     server: MediaServer, scan_result: Any, *, authoritative: bool = True
 ) -> None:
@@ -568,6 +585,9 @@ def upsert_scanned_libraries(
                     enabled=False,
                 )
             )
+
+    if not existing_libs:
+        _tick_server_defaults(server)
 
     if not authoritative:
         return
