@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 import structlog
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from app.extensions import db
 from app.models import Invitation, User
@@ -493,7 +493,7 @@ class DropClient(RestApiMixin):
             return False, msg
 
         existing = User.query.filter(
-            or_(User.username == username, User.email == email),
+            or_(User.username == username, func.lower(User.email) == (email or "").lower()),
             User.server_id == getattr(self, "server_id", None),
         ).first()
         if existing:
