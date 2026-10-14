@@ -833,11 +833,16 @@ def complete():
     a cookie with the media server URL for the login page redirect. Without an
     invitation in the session there is nothing to show, so it redirects home.
     """
-    invite_code = InviteCodeManager.get_invite_code()
+    # wizard_access holds the invite's code too, for a browser that lost the stored one.
+    invite_code = InviteCodeManager.get_invite_code() or session.get("wizard_access")
     media_server_url = None
     invitation = None
     if invite_code:
-        _valid, invitation = InviteCodeManager.validate_invite_code(invite_code)
+        # Not validate_invite_code: a single-use invite is "used" by now, which
+        # that refuses, and this page is exactly for the person who just joined.
+        from app.services import invite_steps
+
+        invitation = invite_steps.find_invitation(invite_code)
 
     page = None
     if invitation:
