@@ -215,7 +215,7 @@ def test_invite_creator_text_becomes_an_account_link(migration_app, temp_db):
 
 
 # The revision that joins the fork's migrations with upstream's; each merge moves it.
-MERGED_HEAD = "20261012_merge_heads"
+MERGED_HEAD = "20261014_user_protected"
 
 
 @pytest.mark.parametrize(
@@ -717,3 +717,21 @@ def test_wizard_step_category_unique_constraint(migration_app, temp_db):
             row = result.fetchone()
             assert row is not None
             assert row[0] == 4, "Should have 4 total steps"
+
+
+def test_user_protected_migration_keeps_the_expression_index(migration_app, temp_db):
+    """Adding user.protected must not rebuild the table: a batch rebuild drops
+    ix_user_server_lower_username, which reflection cannot see."""
+    with migration_app.app_context():
+        upgrade()
+
+        engine = create_engine(temp_db)
+        with engine.connect() as connection:
+            columns = {
+                row[1] for row in connection.execute(text("PRAGMA table_info(user)"))
+            }
+            indexes = {
+                row[1] for row in connection.execute(text("PRAGMA index_list(user)"))
+            }
+        assert "protected" in columns
+        assert "ix_user_server_lower_username" in indexes

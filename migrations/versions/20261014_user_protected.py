@@ -15,17 +15,14 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table("user", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "protected",
-                sa.Boolean(),
-                nullable=False,
-                server_default=sa.false(),
-            )
-        )
+    # Plain ALTER TABLE, not batch_alter_table: on SQLite a batch rebuild copies the
+    # table through reflection, which cannot see the expression index
+    # ix_user_server_lower_username, and the rebuilt table would lose it.
+    op.add_column(
+        "user",
+        sa.Column("protected", sa.Boolean(), nullable=False, server_default=sa.false()),
+    )
 
 
 def downgrade():
-    with op.batch_alter_table("user", schema=None) as batch_op:
-        batch_op.drop_column("protected")
+    op.drop_column("user", "protected")
