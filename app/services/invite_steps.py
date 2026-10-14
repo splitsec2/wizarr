@@ -139,8 +139,9 @@ def people(invitation: Invitation) -> dict[str, dict[int, str]]:
 
 def is_person(invitation: Invitation, email: str) -> bool:
     return (
-        InvitationPerson.query.filter_by(
-            invitation_id=invitation.id, email=email
+        InvitationPerson.query.filter(
+            InvitationPerson.invitation_id == invitation.id,
+            func.lower(InvitationPerson.email) == email.lower(),
         ).first()
         is not None
     )
@@ -244,6 +245,25 @@ def record(
     """Mark every server on *step*; a skipped step can be done later."""
     for server in step.servers:
         record_server(invitation, server, state, person=person)
+
+
+def record_held(invitation: Invitation, step: Step, person: str, email: str) -> None:
+    """Mark done the servers on *step* where this address already has an
+    account, so the step only asks for what is missing."""
+    if not email:
+        return
+    held = {
+        server_id
+        for (server_id,) in db.session.query(User.server_id)
+        .filter(
+            func.lower(User.email) == email.lower(),
+            User.server_id.in_([s.id for s in step.servers]),
+        )
+        .all()
+    }
+    for server in step.servers:
+        if server.id in held:
+            record_server(invitation, server, DONE, person=person)
 
 
 def earlier_account(invitation: Invitation, person: str = SINGLE_PERSON) -> User | None:

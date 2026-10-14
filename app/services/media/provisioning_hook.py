@@ -36,6 +36,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import requests
+from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Invitation, User
@@ -225,7 +226,9 @@ class ProvisioningHookClient(RestApiMixin):
             return False, msg
 
         server_id = getattr(self, "server_id", None)
-        if User.query.filter_by(email=email, server_id=server_id).first():
+        if User.query.filter(
+            func.lower(User.email) == email.lower(), User.server_id == server_id
+        ).first():
             return False, "This address already has access."
 
         granted, _reply = self._call("grant", email, password or None)

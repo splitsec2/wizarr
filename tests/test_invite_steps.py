@@ -456,3 +456,71 @@ def test_the_avatar_is_one_initial(client, plex_abs, fake_plex):
 
 def test_accounts_from_ordinary_invites_show_no_setup(session):
     assert User(username="x", code=None).invite_setup() == []
+
+
+# ── a service the person already holds ─────────────────────────────────────
+
+
+def _holds(server, email):
+    db.session.add(
+        User(
+            token="held",
+            username="held",
+            email=email,
+            code="OLDINVITE",
+            server_id=server.id,
+        )
+    )
+    db.session.commit()
+
+
+@pytest.fixture
+def abs_books(setup_done):
+    abs_server = _server("AudioBookShelf", "audiobookshelf")
+    books = _server("Books", "provisioning_hook")
+    return _invite(abs_server, books), abs_server, books
+
+
+def _account_form(email):
+    return {
+        "code": "STEPS123",
+        "username": "listener",
+        "email": email,
+        "password": "Correct-Horse-9x",
+        "confirm_password": "Correct-Horse-9x",
+    }
+
+
+def test_a_held_service_counts_as_done_and_the_step_completes(
+    client, abs_books, fake_media
+):
+    invitation, abs_server, books = abs_books
+    _holds(abs_server, "Listener@Example.com")
+    _verified(client, "STEPS123", "listener@example.com")
+    resp = client.post(
+        "/j/STEPS123/steps/account", data=_account_form("listener@example.com")
+    )
+    assert resp.headers["Location"].endswith("/j/STEPS123/steps")
+    assert list(fake_media) == [books.id]
+    assert _states(invitation) == {abs_server.id: "done", books.id: "done"}
+
+
+def test_a_step_with_everything_held_completes_without_an_account(
+    client, abs_books, fake_media
+):
+    invitation, abs_server, books = abs_books
+    _holds(abs_server, "listener@example.com")
+    _holds(books, "LISTENER@example.com")
+    _verified(client, "STEPS123", "listener@example.com")
+    resp = client.get("/j/STEPS123/steps/account")
+    assert resp.headers["Location"].endswith("/j/STEPS123/steps")
+    assert fake_media == {}
+    assert _states(invitation) == {abs_server.id: "done", books.id: "done"}
+
+
+def test_someone_elses_account_is_not_held(client, abs_books, fake_media):
+    invitation, abs_server, _books = abs_books
+    _holds(abs_server, "other@example.com")
+    _verified(client, "STEPS123", "listener@example.com")
+    client.post("/j/STEPS123/steps/account", data=_account_form("listener@example.com"))
+    assert set(fake_media) == {abs_server.id, _books.id}
