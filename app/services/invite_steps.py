@@ -272,21 +272,45 @@ def record(
 
 def record_held(invitation: Invitation, step: Step, person: str, email: str) -> None:
     """Mark done the servers on *step* where this address already has an
-    account, so the step only asks for what is missing."""
+    account, so the step only asks for what is missing.
+
+    An account that is switched off or past its end is not held: the invite
+    renews it (the end date this invite gives for that server, and switched
+    back on if it was off) and only then counts as done. When the renewal
+    does not take, the server stays on the checklist.
+    """
+    from app.services.expiry import (
+        calculate_user_expiry,
+        expiry_has_passed,
+        reenable_if_renewed,
+    )
+
     if not email:
         return
-    held = {
-        server_id
-        for (server_id,) in db.session.query(User.server_id)
-        .filter(
+    server_ids = [s.id for s in step.servers]
+    rows = (
+        User.query.filter(
             func.lower(User.email) == email.lower(),
-            User.server_id.in_([s.id for s in step.servers]),
+            User.server_id.in_(server_ids),
         )
+        .order_by(User.id.desc())
         .all()
-    }
+    )
+    held: dict[int, User] = {}
+    for row in rows:
+        held.setdefault(row.server_id, row)
     for server in step.servers:
-        if server.id in held:
-            record_server(invitation, server, DONE, person=person)
+        account = held.get(server.id)
+        if account is None:
+            continue
+        if account.is_disabled or expiry_has_passed(account):
+            account.expires = calculate_user_expiry(invitation, server.id)
+            db.session.commit()
+            if account.is_disabled and not reenable_if_renewed(account):
+                continue
+            if expiry_has_passed(account):
+                continue
+        record_server(invitation, server, DONE, person=person)
 
 
 def earlier_account(invitation: Invitation, person: str = SINGLE_PERSON) -> User | None:
