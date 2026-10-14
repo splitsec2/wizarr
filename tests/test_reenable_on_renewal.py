@@ -15,6 +15,7 @@ import pytest
 from flask import url_for
 
 from app.extensions import db
+from app.jinja_filters import to_local
 from app.models import AdminAccount, MediaServer, User
 from app.services import expiry
 from app.services.media import service
@@ -135,3 +136,34 @@ def test_saving_a_future_expiry_in_the_user_modal_enables_the_account(
 
     client_mock.enable_user.assert_called_once_with("remote-sam")
     assert _load(uid).is_disabled is False
+
+
+def test_saving_notes_does_not_switch_a_switched_off_account_back_on(
+    app, admin_client, session, server, client_mock
+):
+    uid = _user(session, server, disabled=True, offset=FUTURE)
+    with app.test_request_context():
+        url = url_for("admin.user_detail", db_id=uid)
+
+    assert (
+        admin_client.post(url, data={"notes": "away for the term"}).status_code == 200
+    )
+
+    client_mock.enable_user.assert_not_called()
+    assert _load(uid).is_disabled is True
+
+
+def test_saving_the_same_expiry_again_is_not_a_renewal(
+    app, admin_client, session, server, client_mock
+):
+    uid = _user(session, server, disabled=True, offset=FUTURE)
+    with app.test_request_context():
+        url = url_for("admin.user_detail", db_id=uid)
+    same = _load(uid).expires
+    assert same is not None
+    shown = to_local(same.replace(tzinfo=datetime.UTC))
+    same_local = shown.replace(tzinfo=None).isoformat(timespec="minutes")
+
+    admin_client.post(url, data={"expires": same_local})
+
+    client_mock.enable_user.assert_not_called()

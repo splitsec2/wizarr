@@ -712,6 +712,10 @@ def users_table():
     )
 
 
+def _to_the_minute(value: datetime.datetime | None) -> datetime.datetime | None:
+    return value.replace(second=0, microsecond=0) if value else None
+
+
 @admin_bp.route("/user/<int:db_id>", methods=["GET", "POST"])
 @login_required
 def user_detail(db_id: int):
@@ -734,6 +738,8 @@ def user_detail(db_id: int):
                 set_user_email(user, request.form["email"])
             except InvalidEmailError:
                 return _invalid_email_response()
+
+        expires_before = user.expires
 
         # Update expiry only if present in form
         if "expires" in request.form:
@@ -761,8 +767,12 @@ def user_detail(db_id: int):
 
         db.session.commit()
 
-        # A renewed account that expiry had disabled comes back on
-        reenable_if_renewed(user)
+        # A renewed account that expiry had disabled comes back on. Only a
+        # changed expiry is a renewal: saving notes or an email must not
+        # switch back on an account the admin switched off.
+        # (The form shows the expiry to the minute, so compare to the minute.)
+        if _to_the_minute(user.expires) != _to_the_minute(expires_before):
+            reenable_if_renewed(user)
 
         # Close the modal and refresh the user table to preserve filters/sorting
         response = Response("")
