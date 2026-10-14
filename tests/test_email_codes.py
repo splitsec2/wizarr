@@ -152,7 +152,10 @@ def test_code_round_trip_unlocks_the_checklist(client, mail):
         data={"code": _code_in(mail), "next": "/j/SHARED01/steps"},
     )
     assert right.headers["Location"].endswith("/j/SHARED01/steps")
-    assert client.get("/j/SHARED01/steps").status_code == 200
+    # One row: the checklist opens it straight away.
+    opened = client.get("/j/SHARED01/steps")
+    assert opened.status_code == 302
+    assert opened.headers["Location"].endswith("/j/SHARED01/steps/account")
 
 
 def test_next_never_leaves_the_invite(client, mail):
@@ -234,7 +237,11 @@ def test_each_person_has_their_own_progress(app, mail, fake_media):
         "pat@example.com": {abs_server.id: "done"}
     }
     assert 'data-state="done"' in pat.get("/j/SHARED01/steps").get_data(as_text=True)
-    assert 'data-state="todo"' in sam.get("/j/SHARED01/steps").get_data(as_text=True)
+    assert (
+        sam.get("/j/SHARED01/steps")
+        .headers["Location"]
+        .endswith("/j/SHARED01/steps/account")
+    )
 
 
 def test_the_account_uses_the_proven_address(app, mail, fake_media):

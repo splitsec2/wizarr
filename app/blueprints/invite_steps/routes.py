@@ -58,6 +58,7 @@ def _full_message() -> str:
 # process (gunicorn threads), so a lock per invite and person is enough.
 _step_locks: dict[str, threading.Lock] = {}
 _step_locks_guard = threading.Lock()
+_AUTO_OPENED = "invite_steps_auto_opened"
 
 
 @contextmanager
@@ -189,6 +190,19 @@ def checklist(code):
         for step in invite_steps.steps_for(invitation)
     ]
     next_step = next((step for step, state in steps if state is None), None)
+    # One row: open it straight away the first time. A return visit, or the
+    # checklist after a failure, shows the list.
+    opened = list(session.get(_AUTO_OPENED) or [])
+    if (
+        len(steps) == 1
+        and next_step is not None
+        and invitation.code.lower() not in opened
+    ):
+        opened.append(invitation.code.lower())
+        session[_AUTO_OPENED] = opened
+        return redirect(
+            url_for("invite_steps.run_step", code=invitation.code, key=next_step.key)
+        )
     return render_template(
         "invite-steps.html",
         invitation=invitation,

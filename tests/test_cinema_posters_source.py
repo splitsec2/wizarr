@@ -161,7 +161,13 @@ def test_settings_page_offers_and_saves_the_choice(client, session):
     assert saved.value == str(shared.id)
 
 
-def test_join_page_sends_its_invite_code(client, session):
+@pytest.fixture
+def legacy_join(monkeypatch):
+    """The plain join page, still used by an LDAP invite or one with no steps."""
+    monkeypatch.setattr("app.services.invite_steps.uses_steps", lambda _inv: False)
+
+
+def test_join_page_sends_its_invite_code(client, session, legacy_join):
     _family, shared, _books = _servers()
     _invite("JOINPAGE1", [shared])
 

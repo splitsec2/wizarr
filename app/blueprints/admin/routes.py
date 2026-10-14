@@ -402,6 +402,7 @@ def invite_table():
     # ------------------------------------------------------------------
     # 5. Annotate invitations for the template (view-model enrichment)
     # ------------------------------------------------------------------
+    progress_by_invite = invite_steps.server_states_for(list(invites))
     for inv in invites:
         # ---- expiry / expired ----
         if inv.expires:
@@ -449,7 +450,7 @@ def invite_table():
         uses_steps = invite_steps.uses_steps(inv)
         shared = uses_steps and invite_steps.multi_use(inv)
         inv.step_states = (
-            invite_steps.server_states(inv) if uses_steps and not shared else {}
+            progress_by_invite.get(inv.id, {}) if uses_steps and not shared else {}
         )
         # A shared invite: how far each person who proved their email got.
         inv.people_progress = (

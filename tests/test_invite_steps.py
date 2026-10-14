@@ -145,16 +145,14 @@ def test_single_use_invite_for_two_services_uses_steps(plex_abs):
 def test_all_plex_servers_are_one_step(setup_done):
     invitation = _invite(_server("A", "plex"), _server("B", "plex"))
     assert [s.key for s in invite_steps.steps_for(invitation)] == ["plex"]
-    assert not invite_steps.uses_steps(invitation)
+    assert invite_steps.uses_steps(invitation)
 
 
-def test_unlimited_and_single_service_invites_keep_their_flow(setup_done):
+def test_a_shared_invite_needs_mail_but_a_single_service_invite_does_not(setup_done):
     assert not invite_steps.uses_steps(
         _invite(_server("P", "plex"), _server("A", "audiobookshelf"), unlimited=True)
     )
-    assert not invite_steps.uses_steps(
-        _invite(_server("J", "jellyfin"), code="ONLYONE1")
-    )
+    assert invite_steps.uses_steps(_invite(_server("J", "jellyfin"), code="ONLYONE1"))
 
 
 def test_link_opens_the_welcome_first(client, plex_abs):
@@ -481,14 +479,26 @@ def test_one_service_invite_opens_the_checklist_when_mail_can_send(
     assert invite_steps.uses_steps(invitation)
 
 
-def test_one_service_invite_keeps_the_plain_signup_without_mail(setup_done):
+def test_one_service_invite_uses_the_checklist_without_mail(setup_done):
     invitation = _invite(_server("Only", "audiobookshelf"), code="ONLYONE3")
-    assert not invite_steps.uses_steps(invitation)
+    assert invite_steps.uses_steps(invitation)
 
 
-def test_a_plex_only_invite_still_uses_the_plex_flow(setup_done, mail_ready):
+def test_a_plex_only_invite_uses_the_checklist(setup_done, mail_ready):
     invitation = _invite(_server("Plex", "plex"), code="PLEXONE1")
-    assert not invite_steps.uses_steps(invitation)
+    assert invite_steps.uses_steps(invitation)
+
+
+def test_a_one_row_checklist_opens_its_row_once(client, setup_done):
+    _invite(_server("Only", "audiobookshelf"), code="ONEROW01")
+
+    first = client.get("/j/ONEROW01/steps")
+    assert first.status_code == 302
+    assert first.headers["Location"].endswith("/j/ONEROW01/steps/account")
+
+    again = client.get("/j/ONEROW01/steps")
+    assert again.status_code == 200
+    assert "/j/ONEROW01/steps/account" in again.get_data(as_text=True)
 
 
 # ── a join that fails is shown as failed ───────────────────────────────────
