@@ -36,6 +36,7 @@ from app.models import (
     invitation_users,
 )
 from app.services import invite_steps
+from app.services.account_guard import AccountProtected
 from app.services.expiry import get_expiring_this_week_users, reenable_if_renewed
 from app.services.identity_linking import link_user_accounts, primary_account
 from app.services.invites import create_invite
@@ -619,6 +620,15 @@ def _sort_groups_by_expiry(keys, order, earliest):
     return keys
 
 
+def _delete_unless_protected(user_id: int) -> bool:
+    """Delete one user; a protected account stays (and the table shows it)."""
+    try:
+        delete_user(user_id)
+    except AccountProtected:
+        return False
+    return True
+
+
 @admin_bp.route("/users/table")
 @login_required
 def users_table():
@@ -628,11 +638,11 @@ def users_table():
     page = max(request.args.get("page", default=1, type=int) or 1, 1)
     # single or multi delete
     if uid := request.args.get("delete"):
-        delete_user(int(uid))
+        _delete_unless_protected(int(uid))
     if multi := request.args.get("delete_multi"):
         for uid in multi.split(","):
             if uid.isdigit():
-                delete_user(int(uid))
+                _delete_unless_protected(int(uid))
 
     # 1. Get only the columns that grouping and sorting need, for all users
     #    that match the filters. This is cheap also for thousands of users.
@@ -755,6 +765,17 @@ def user_detail(db_id: int):
                 )
             else:
                 user.expires = None
+
+        # Protected: one setting for every account of the person
+        if "protected_form" in request.form:
+            flag = request.form.get("protected") == "1"
+            accounts = (
+                User.query.filter_by(identity_id=user.identity_id).all()
+                if user.identity_id
+                else [user]
+            )
+            for account in accounts:
+                account.protected = flag
 
         # Update notes only if present in form
         if "notes" in request.form:
@@ -1115,14 +1136,18 @@ def unlink_account():
     return response
 
 
-def _delete_accounts(user_ids) -> list[tuple[str, str]]:
+def _delete_accounts(
+    user_ids,
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """Delete accounts, each one only once its server confirms.
 
     A server that cannot be reached or refuses the delete keeps the Wizarr row,
-    so the account can be found and removed on the next try. Returns the
-    (username, server name) of every account that was not removed.
+    so the account can be found and removed on the next try. A protected account
+    is left alone. Returns the (username, server name) of every account that was
+    not removed, and of every one that was protected.
     """
     failed = []
+    protected = []
     for uid in user_ids:
         user = db.session.get(User, uid)
         if user is None:
@@ -1130,19 +1155,27 @@ def _delete_accounts(user_ids) -> list[tuple[str, str]]:
         who = (user.username, user.server.name if user.server else "")
         try:
             delete_user(uid, require_remote=True)
+        except AccountProtected:
+            protected.append(who)
         except Exception as exc:
             db.session.rollback()
             current_app.logger.warning(
                 "Kept %s on %s, the server did not remove it: %s", *who, exc
             )
             failed.append(who)
-    return failed
+    return failed, protected
 
 
-def _delete_failed_response(failed: list[tuple[str, str]]):
+def _delete_failed_response(
+    failed: list[tuple[str, str]], protected: list[tuple[str, str]] | None = None
+):
     """The dialog that names the accounts a delete did not remove."""
     response = make_response(
-        render_template("_partials/delete_failed_modal.html", failed=failed)
+        render_template(
+            "_partials/delete_failed_modal.html",
+            failed=failed,
+            protected=protected or [],
+        )
     )
     response.headers["HX-Retarget"] = "#modal-user"
     response.headers["HX-Reswap"] = "innerHTML"
@@ -1153,9 +1186,11 @@ def _delete_failed_response(failed: list[tuple[str, str]]):
 @admin_bp.post("/users/bulk-delete")
 @login_required
 def bulk_delete_users():
-    failed = _delete_accounts(int(uid) for uid in request.form.getlist("uids"))
-    if failed:
-        return _delete_failed_response(failed)
+    failed, protected = _delete_accounts(
+        int(uid) for uid in request.form.getlist("uids")
+    )
+    if failed or protected:
+        return _delete_failed_response(failed, protected)
 
     # Trigger user table refresh to preserve filters/sorting
     response = Response("")
@@ -1174,6 +1209,8 @@ def remove_user_from_server_endpoint(user_id: int, server_id: int):
     who = (user.username if user else "", server.name if server else "")
     try:
         success = remove_user_from_server(user_id, server_id, require_remote=True)
+    except AccountProtected as refused:
+        return Response(refused.reason, status=409)
     except Exception as exc:
         db.session.rollback()
         current_app.logger.warning(
@@ -1265,10 +1302,12 @@ def process_user_deletion():
         return Response("No accounts selected", status=400)
 
     # Remove users from their respective servers
-    failed = _delete_accounts(int(account_id) for account_id in selected_accounts)
+    failed, protected = _delete_accounts(
+        int(account_id) for account_id in selected_accounts
+    )
     _delete_ticked_invitations(request.form.getlist("delete_invitations"))
-    if failed:
-        return _delete_failed_response(failed)
+    if failed or protected:
+        return _delete_failed_response(failed, protected)
 
     # Trigger user table refresh
     response = Response("")

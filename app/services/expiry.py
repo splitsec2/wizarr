@@ -10,6 +10,7 @@ from pathlib import Path
 from app.extensions import db
 from app.jinja_filters import local_timezone
 from app.models import ExpiredUser, Invitation, User, invitation_servers
+from app.services import account_guard
 from app.services.media.service import delete_user, disable_user, enable_user
 from app.services.protected import is_protected_user, protected_emails
 
@@ -223,6 +224,10 @@ def _claim_expiry(user: User) -> tuple[bool, int | None]:
     row existed before (an expired user that was enabled again).
     """
     user_id = user.id
+    # A protected account is left alone: no event, no remote call, no error line.
+    if account_guard.refusal(user, "delete") or account_guard.refusal(user, "disable"):
+        logging.info("Expired user %s is protected, skipped", user_id)
+        return False, None
     try:
         event = _record_expiry_event(user)
         # The flush gave the row its id. Read it before the commit expires it.

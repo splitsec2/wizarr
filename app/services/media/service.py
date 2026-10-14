@@ -19,6 +19,8 @@ from flask import current_app
 
 from app.extensions import db
 from app.models import Identity, MediaServer, Settings, User
+from app.services import account_guard
+from app.services.account_guard import AccountProtected
 from app.services.audit import audit_remote
 
 from .client_base import CLIENTS, EMAIL_RE
@@ -167,6 +169,13 @@ def _set_user_enabled_state(db_id: int, enabled: bool, *, commit: bool = True) -
     if not user.server:
         logging.warning(f"User {db_id} has no associated server")
         return False
+
+    if not enabled:
+        try:
+            account_guard.require(user, "disable")
+        except AccountProtected as refused:
+            logging.info("Not disabling user %s: %s", db_id, refused.reason)
+            return False
 
     try:
         client = get_client_for_media_server(user.server)  # type: ignore
@@ -331,6 +340,8 @@ def delete_user(
     if not (user := db.session.get(User, db_id)):
         return
 
+    account_guard.require(user, "delete")
+
     # Delete from the media server first, so a required delete that fails
     # leaves everything else in place.
     if user.server:
@@ -429,6 +440,8 @@ def remove_user_from_server(
 
     if not user or not server or user.server_id != server_id:
         return False
+
+    account_guard.require(user, "remove")
 
     # Remove from remote media server
     try:

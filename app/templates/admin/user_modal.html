@@ -52,6 +52,32 @@
         </p>
       </form>
     {% endif %}
+    <!-- Protected: delete, switch off and remove refuse this person's accounts -->
+    <form hx-post="{{ url_for('admin.user_detail', db_id=user.id) }}"
+          class="px-4 sm:px-6 pb-4">
+      <input type="hidden" name="protected_form" value="1">
+      <div class="flex items-center justify-between gap-3">
+        <label for="user_protected"
+               class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <input id="user_protected"
+                 name="protected"
+                 type="checkbox"
+                 value="1"
+                 aria-describedby="user-protected-help"
+                 class="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                 {% if user.protected %}checked{% endif %}>
+          {{ _("Protected") }}
+        </label>
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary_hover focus:ring-4 focus:outline-none focus:ring-primary_focus dark:bg-primary dark:hover:bg-primary_hover dark:focus:ring-primary_focus">
+          {{ _("Update") }}
+        </button>
+      </div>
+      <p id="user-protected-help"
+         class="mt-1 text-xs text-gray-600 dark:text-gray-400">
+        {{ _("A protected person's accounts are never deleted, switched off or removed, by an expiry or by anyone, until you clear this.") }}
+      </p>
+    </form>
     <!-- Tab Navigation -->
     <div class="border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6">
       <nav class="flex -mb-px space-x-2 overflow-x-auto"
