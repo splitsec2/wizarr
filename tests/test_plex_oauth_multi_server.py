@@ -21,7 +21,7 @@ class FakePlexClient:
         self.url = media_server.url
         self.token = media_server.api_key
 
-    def _create_user_with_identity_linking(self, user_data):
+    def _create_user_with_identity_linking(self, user_data, person_email=None):
         user = User(
             token=user_data["token"],
             username=user_data["username"],

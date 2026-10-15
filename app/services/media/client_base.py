@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING
 
 import requests
 from requests.adapters import HTTPAdapter
+from sqlalchemy import func
 
 from app.extensions import db
 from app.models import Library, MediaServer, Settings, User
@@ -359,20 +360,23 @@ class MediaClient(ABC):
         # Return proxy URL with token
         return f"/image-proxy?token={quote_plus(token)}"
 
-    def _create_user_with_identity_linking(self, user_kwargs: dict) -> User:
-        """Create a User record with intelligent identity linking based on invitation type.
+    def _create_user_with_identity_linking(
+        self, user_kwargs: dict, person_email: str | None = None
+    ) -> User:
+        """Create a User record linked to the other accounts of the same person.
 
-        This helper implements the correct identity linking logic:
+        The accounts one person makes from one invite share an Identity, whatever
+        address each service holds (a Plex account's email often differs from the
+        one given for the other services):
 
-        - **Limited invitations**: Always link users with the same code (same person across servers)
-        - **Unlimited invitations**: Only link users with same code AND same email (same person across servers)
-
-        This prevents the bug where different people using the same unlimited invite
-        would get incorrectly linked, while still allowing the same person to be
-        properly linked across multiple servers.
+        - **Limited invitations**: every account made from the code is one person.
+        - **Unlimited invitations**: people are told apart by the email they proved
+          (``person_email``, or the account's own email when none is given); a
+          person's accounts are linked through it.
 
         Args:
             user_kwargs: Dictionary of User model attributes
+            person_email: The email this person proved on a shared invite
 
         Returns:
             User: The created User record with identity_id set if applicable
@@ -380,24 +384,58 @@ class MediaClient(ABC):
         code = user_kwargs.get("code")
         email = user_kwargs.get("email")
 
-        # Check if this is part of a multi-server invitation
         if code:
-            from app.models import Invitation
+            from app.models import Identity, Invitation
 
             invitation = Invitation.query.filter_by(code=code).first()
 
-            if invitation:
-                if not invitation.unlimited:
-                    # LIMITED invites: Always link users with same code (same person across servers)
-                    existing_user = User.query.filter_by(code=code).first()
-                    if existing_user and existing_user.identity_id:
-                        user_kwargs["identity_id"] = existing_user.identity_id
-                # UNLIMITED invites: Only link if same email (same person across servers)
-                # Different emails = different people, should remain separate
-                elif email and EMAIL_RE.fullmatch(email):
-                    existing_user = User.query.filter_by(code=code, email=email).first()
-                    if existing_user and existing_user.identity_id:
-                        user_kwargs["identity_id"] = existing_user.identity_id
+            if invitation and not invitation.unlimited:
+                others = User.query.filter_by(code=code).all()
+                identity_id = next(
+                    (u.identity_id for u in others if u.identity_id), None
+                )
+                if identity_id is None and others:
+                    identity = Identity(
+                        primary_email=others[0].email,
+                        primary_username=others[0].username,
+                    )
+                    db.session.add(identity)
+                    db.session.flush()
+                    identity_id = identity.id
+                    for other in others:
+                        other.identity_id = identity_id
+                if identity_id is not None:
+                    user_kwargs["identity_id"] = identity_id
+            elif invitation:
+                key = (person_email or email or "").strip()
+                if EMAIL_RE.fullmatch(key):
+                    identity = (
+                        Identity.query.join(User, User.identity_id == Identity.id)
+                        .filter(
+                            User.code == code,
+                            func.lower(Identity.primary_email) == key.lower(),
+                        )
+                        .first()
+                    )
+                    # A person has one account per server: the same email on the
+                    # same server is someone else.
+                    peers = User.query.filter(
+                        User.code == code,
+                        func.lower(User.email) == key.lower(),
+                        User.server_id != user_kwargs.get("server_id"),
+                    ).all()
+                    if identity is None and (person_email or peers):
+                        identity = Identity(
+                            primary_email=key,
+                            primary_username=user_kwargs.get("username"),
+                        )
+                        db.session.add(identity)
+                        db.session.flush()
+                    if identity is not None:
+                        for peer in peers:
+                            if not peer.identity_id:
+                                peer.identity_id = identity.id
+                        user_kwargs["identity_id"] = identity.id
 
         # Clean up any expired user records for this email address
         if email:
@@ -418,6 +456,7 @@ class MediaClient(ABC):
         code: str,
         invitation=None,
         server_id: int | None = None,
+        person_email: str | None = None,
     ) -> User:
         """Save the local row for someone who just joined through an invite.
 
@@ -437,7 +476,8 @@ class MediaClient(ABC):
                 "code": code,
                 "expires": expires,
                 "server_id": server_id,
-            }
+            },
+            person_email=person_email,
         )
         db.session.commit()
         return new_user

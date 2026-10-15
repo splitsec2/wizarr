@@ -258,7 +258,12 @@ def _plex_step(invitation, step):
     from app.services.media.plex import handle_oauth_token
 
     try:
-        handle_oauth_token(current_app, token, invitation.code)
+        handle_oauth_token(
+            current_app,
+            token,
+            invitation.code,
+            person_email=_verified_email(invitation),
+        )
     except Exception as exc:
         current_app.logger.error(
             "Plex step failed for invite %s: %s", invitation.code, exc

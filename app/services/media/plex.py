@@ -1670,7 +1670,9 @@ def _provision_companions(app, token: str, server_id: int) -> None:
             logging.warning("Companion provisioning failed: %s", exc)
 
 
-def handle_oauth_token(app, token: str, code: str) -> None:
+def handle_oauth_token(
+    app, token: str, code: str, person_email: str | None = None
+) -> None:
     with app.app_context():
         account = MyPlexAccount(token=token)
         email = account.email
@@ -1714,6 +1716,7 @@ def handle_oauth_token(app, token: str, code: str) -> None:
                 code=code,
                 invitation=inv,
                 server_id=server_id,
+                person_email=person_email,
             )
 
             _invite_user(email, code, new_user.id, server)
