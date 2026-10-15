@@ -20,6 +20,7 @@ from flask import current_app
 from app.extensions import db
 from app.models import Identity, MediaServer, Settings, User
 from app.services.audit import audit_remote
+from app.services.protected import is_protected_user
 
 from .client_base import CLIENTS, EMAIL_RE
 
@@ -621,6 +622,17 @@ def reset_user_password(db_id: int, new_password: str) -> bool:
     # Basic safeguard – keep consistent with join rules
     if not (8 <= len(new_password) <= 128):
         logging.warning("Password does not meet length requirements")
+        return False
+
+    if (
+        user.server
+        and user.server.server_type == "provisioning_hook"
+        and (user.is_disabled or is_protected_user(user))
+    ):
+        logging.warning(
+            "Not resetting the Books password for %s: switched off or protected",
+            user.username,
+        )
         return False
 
     ldap_success = False

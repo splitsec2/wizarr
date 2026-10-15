@@ -1308,6 +1308,28 @@ def switch_users():
     return response
 
 
+def _is_books(user) -> bool:
+    server = getattr(user, "server", None)
+    return bool(server and server.server_type == "provisioning_hook")
+
+
+def _may_reset_password(user) -> bool:
+    """Books refuses a protected address, one that is switched off or not a reader."""
+    from app.services.password_reset import reset_account
+
+    return reset_account([user]) is not None or not _is_books(user)
+
+
+def _reset_refused(user):
+    return render_template(
+        "modals/password-reset-link.html",
+        error=_("Reset password is not available for this account."),
+        username=user.username,
+        user_id=user.id,
+        has_token=False,
+    ), 403
+
+
 @admin_bp.get("/users/<int:user_id>/reset-password-modal")
 @login_required
 def reset_password_modal(user_id: int):
@@ -1315,6 +1337,8 @@ def reset_password_modal(user_id: int):
     from datetime import UTC, datetime
 
     user = db.get_or_404(User, user_id)
+    if not _may_reset_password(user):
+        return _reset_refused(user)
 
     # Check for existing valid (unused and not expired) tokens
     existing_token = (
@@ -1338,6 +1362,7 @@ def reset_password_modal(user_id: int):
             code=existing_token.code,
             expires_at=expires_at,
             has_token=True,
+            is_books=_is_books(user),
         )
     # No valid token - show generate button
     return render_template(
@@ -1345,6 +1370,7 @@ def reset_password_modal(user_id: int):
         username=user.username,
         user_id=user.id,
         has_token=False,
+        is_books=_is_books(user),
     )
 
 
@@ -1357,6 +1383,8 @@ def generate_reset_link(user_id: int):
     from app.services.password_reset import create_reset_token
 
     user = db.get_or_404(User, user_id)
+    if not _may_reset_password(user):
+        return _reset_refused(user)
 
     try:
         token = create_reset_token(user.id)
@@ -1383,6 +1411,7 @@ def generate_reset_link(user_id: int):
             code=token.code,
             expires_at=expires_at,
             has_token=True,
+            is_books=_is_books(user),
         )
 
     except Exception as e:
