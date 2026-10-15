@@ -319,3 +319,84 @@ def test_other_servers_still_ask_for_a_password(client, session, hook):
     assert 'name="username"' in body
     assert 'name="password"' in body
     assert 'name="confirm_password"' in body
+
+
+# ── Reset password (the endpoint's set-password verb) ───────────────────────
+
+
+def _books_user(server, email="reader@example.com", disabled=False):
+    user = User(
+        username=email,
+        email=email,
+        token=email,
+        code="BOOKSRST1",
+        server_id=server.id,
+        is_disabled=disabled,
+    )
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+def test_reset_password_sends_set_password_with_the_new_password(hook, session):
+    server = _server()
+    user = _books_user(server)
+    client = get_client_for_media_server(server)
+
+    assert client.reset_password(user.token, "a-new-password") is True
+
+    assert hook.calls == [("set-password", "reader@example.com")]
+    assert hook.passwords == ["a-new-password"]
+
+
+def test_a_refused_reset_is_reported_as_failed(hook, session):
+    hook.replies["set-password"] = (
+        409,
+        {"ok": False, "reason": "not_a_reader", "output": "REFUSED"},
+    )
+    server = _server()
+    user = _books_user(server)
+    client = get_client_for_media_server(server)
+
+    assert client.reset_password(user.token, "a-new-password") is False
+
+
+def test_reset_account_offers_only_a_switched_on_unprotected_books_account(
+    hook, session
+):
+    from app.services.password_reset import reset_account
+
+    server = _server()
+    on = _books_user(server, "on@example.com")
+    off = _books_user(server, "off@example.com", disabled=True)
+    assert reset_account([on]) is on
+    assert reset_account([off]) is None
+
+
+def test_reset_account_refuses_a_protected_address(hook, session):
+    from app.models import Settings
+    from app.services.password_reset import reset_account
+
+    db.session.add(Settings(key="protected_emails", value="owner@example.com"))
+    server = _server()
+    owner = _books_user(server, "owner@example.com")
+    assert reset_account([owner]) is None
+
+
+def test_the_service_does_not_reset_a_protected_or_switched_off_books_account(
+    hook, session
+):
+    from app.models import Settings
+    from app.services.media.service import reset_user_password
+
+    db.session.add(Settings(key="protected_emails", value="owner@example.com"))
+    server = _server()
+    owner = _books_user(server, "owner@example.com")
+    off = _books_user(server, "off@example.com", disabled=True)
+    ok = _books_user(server, "ok@example.com")
+
+    assert reset_user_password(owner.id, "a-new-password") is False
+    assert reset_user_password(off.id, "a-new-password") is False
+    assert hook.calls == []
+    assert reset_user_password(ok.id, "a-new-password") is True
+    assert hook.calls == [("set-password", "ok@example.com")]

@@ -310,6 +310,9 @@ def register_filters(app):
 
     app.jinja_env.globals.setdefault("credential_server_types", credential_server_types)
     app.jinja_env.globals.setdefault("server_supports_disable", server_supports_disable)
+    from app.services.password_reset import reset_account
+
+    app.jinja_env.globals.setdefault("reset_account", reset_account)
     app.jinja_env.filters.setdefault("server_type_tag", server_type_tag)
     app.jinja_env.filters.setdefault("server_name_tag", server_name_tag)
     app.jinja_env.filters.setdefault("server_colour", _server_colour)

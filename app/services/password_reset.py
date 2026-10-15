@@ -254,3 +254,27 @@ def cleanup_expired_tokens() -> int:
         )
         db.session.rollback()
         return 0
+
+
+def reset_account(accounts):
+    """The account on a user card that Reset password works on, or None.
+
+    A Jellyfin account, or a Books account (``provisioning_hook``) that is
+    switched on and not protected: the Books endpoint refuses the others, so no
+    button is offered for them.
+    """
+    from app.services.protected import is_protected_user
+
+    for acct in accounts:
+        server = getattr(acct, "server", None)
+        if server is None:
+            continue
+        if server.server_type == "jellyfin":
+            return acct
+        if (
+            server.server_type == "provisioning_hook"
+            and not acct.is_disabled
+            and not is_protected_user(acct)
+        ):
+            return acct
+    return None

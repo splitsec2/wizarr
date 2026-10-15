@@ -279,8 +279,8 @@
                       <path d="m15 5 4 4" />
                     </svg>
                   </button>
-                  <!-- Reset password - Only show when the card has a Jellyfin account -->
-                  {% set jellyfin_acct = accs | selectattr("server") | selectattr("server.server_type", "equalto", "jellyfin") | first %}
+                  <!-- Reset password - A Jellyfin account, or a Books account that is on and not protected -->
+                  {% set jellyfin_acct = reset_account(accs) %}
                   {% if jellyfin_acct %}
                     <button class="h-8 w-8 p-0 inline-flex items-center justify-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-md hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-colors"
                             type="button"

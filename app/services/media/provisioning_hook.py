@@ -172,6 +172,21 @@ class ProvisioningHookClient(RestApiMixin):
             )
         return {"ok": True}
 
+    def reset_password(self, user_identifier: str, new_password: str) -> bool:
+        """Set a new password through the endpoint's ``set-password`` verb.
+
+        The endpoint changes it on every service behind Books and refuses a
+        protected address or one that is not a current Books reader.
+        """
+        ok, reply = self._call("set-password", user_identifier, new_password)
+        if not ok:
+            logging.warning(
+                "Provisioning hook set-password refused for %s (%s)",
+                user_identifier,
+                reply.get("reason") or "no reason given",
+            )
+        return ok
+
     def enable_user(self, user_id: str) -> bool:
         return self._call("grant", user_id)[0]
 

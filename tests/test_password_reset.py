@@ -754,3 +754,51 @@ class TestPasswordResetSecurityEdgeCases:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
+
+
+def _admin_and_books_users(app, client, admin_name):
+    from app.models import AdminAccount, Settings
+
+    admin = AdminAccount(username=admin_name)
+    admin.set_password("password123")
+    db.session.add_all(
+        [admin, Settings(key="protected_emails", value="owner@example.com")]
+    )
+    server = MediaServer(
+        name="Books",
+        server_type="provisioning_hook",
+        url="http://hook.local:5760/v1/access",
+        api_key="s",
+    )
+    db.session.add(server)
+    db.session.flush()
+    users = {}
+    for name in ("reader", "owner"):
+        users[name] = User(
+            username=name,
+            email=f"{name}@example.com",
+            token=f"{name}@example.com",
+            code="BOOKSRESET",
+            server_id=server.id,
+        )
+        db.session.add(users[name])
+    db.session.commit()
+    client.post("/login", data={"username": admin_name, "password": "password123"})
+    return users
+
+
+def test_books_reset_modal_warns_and_refuses_a_protected_address(app, client):
+    with app.app_context():
+        users = _admin_and_books_users(app, client, "admin_books_a")
+        resp = client.get(f"/users/{users['reader'].id}/reset-password-modal")
+        assert resp.status_code == 200
+        assert b"KOReader" in resp.data
+        assert b"need the new password" in resp.data
+
+        modal = client.get(f"/users/{users['owner'].id}/reset-password-modal")
+        link = client.post(f"/users/{users['owner'].id}/generate-reset-link")
+        assert modal.status_code == 403
+        assert link.status_code == 403
+        assert (
+            PasswordResetToken.query.filter_by(user_id=users["owner"].id).count() == 0
+        )
