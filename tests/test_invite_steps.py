@@ -96,7 +96,7 @@ def fake_media(monkeypatch):
 def fake_plex(monkeypatch):
     calls = []
 
-    def handle_oauth_token(app, token, code):
+    def handle_oauth_token(app, token, code, person_email=None):
         calls.append(token)
         invitation = invite_steps.find_invitation(code)
         assert invitation is not None

@@ -60,7 +60,7 @@ def test_plex_step_shows_the_address_and_never_the_note(
     abs_server = _server("ABS", "audiobookshelf")
     _invite(atp, abs_server)
 
-    def fake_oauth(app, token, code):
+    def fake_oauth(app, token, code, person_email=None):
         db.session.add(
             User(
                 token=token, username="p", email="p@x.com", code=code, server_id=atp.id
