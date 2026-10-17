@@ -120,7 +120,7 @@ def test_bad_dates_are_rejected(session, extra, message):
 
 
 def test_invite_card_shows_the_last_day(client, session):
-    from tests.test_invite_library_selection import _login
+    from tests.fork_helpers import login as _login
 
     _login(client, session)
     plex, books = _servers(session)

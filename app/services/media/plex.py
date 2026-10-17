@@ -17,6 +17,7 @@ from app.extensions import db
 from app.models import Invitation, Library, MediaServer, User
 from app.services.media.service import get_client_for_media_server
 from app.services.notifications import notify
+from app.services.plex_restrictions import PlexRestrictions
 
 from .client_base import (
     ClientCapabilities,
@@ -729,6 +730,7 @@ class PlexClient(MediaClient):
         allow_sync: bool,
         allow_channels: bool,
         allow_camera_upload: bool = False,
+        restrictions: PlexRestrictions | None = None,
     ):
         try:
             self.admin.inviteFriend(
@@ -738,6 +740,7 @@ class PlexClient(MediaClient):
                 allowSync=allow_sync,
                 allowChannels=allow_channels,
                 allowCameraUpload=allow_camera_upload,
+                **(restrictions or PlexRestrictions()).plexapi_kwargs(),
             )
         except Exception as e:
             # Extract human-readable error message and raise custom exception
@@ -755,7 +758,10 @@ class PlexClient(MediaClient):
         allow_sync: bool,
         allow_channels: bool,
         allow_camera_upload: bool = False,
+        restrictions: PlexRestrictions | None = None,
     ):
+        # plexapi sends the libraries and the filters only for an account that
+        # is not yet in the admin's user list. Else it sends the Home invite only.
         try:
             self.admin.createExistingUser(
                 user=email,
@@ -764,6 +770,7 @@ class PlexClient(MediaClient):
                 allowSync=allow_sync,
                 allowChannels=allow_channels,
                 allowCameraUpload=allow_camera_upload,
+                **(restrictions or PlexRestrictions()).plexapi_kwargs(),
             )
         except Exception as e:
             # Extract human-readable error message and raise custom exception
@@ -835,6 +842,31 @@ class PlexClient(MediaClient):
             allow_camera_upload=user.allow_camera_upload or False,
             library_access=library_access,
         )
+
+    def update_user_restrictions(
+        self, email: str, restrictions: PlexRestrictions
+    ) -> bool:
+        """Set the label and rating filters of an existing share.
+
+        Uses plexapi updateFriend. plexapi 4.18.3 sends filterMusic only when
+        allowChannels is a dict, so this call does not change music filters.
+
+        Returns:
+            bool: True if plex.tv accepted the filters, False otherwise
+        """
+        log = structlog.get_logger()
+        if restrictions.music:
+            log.warning("Plex music restrictions not applied", email=email)
+        try:
+            self.admin.updateFriend(email, self.server, **restrictions.plexapi_kwargs())
+        except Exception as e:
+            log.error(
+                "Failed to set Plex restrictions",
+                email=email,
+                error=extract_plex_error_message(e),
+            )
+            return False
+        return True
 
     def update_user(self, info: dict, form: dict) -> None:
         self.admin.updateFriend(
@@ -1791,12 +1823,13 @@ def _invite_user(email: str, code: str, _user_id: int, server: MediaServer) -> N
     allow_sync = bool(inv.allow_downloads)
     allow_tv = bool(inv.allow_live_tv)
     allow_camera_upload = bool(inv.allow_mobile_uploads)
+    restrictions = PlexRestrictions.from_invitation(inv)
+    send_invite = client.invite_home if inv.plex_home else client.invite_friend
 
     try:
-        if inv.plex_home:
-            client.invite_home(email, libs, allow_sync, allow_tv, allow_camera_upload)
-        else:
-            client.invite_friend(email, libs, allow_sync, allow_tv, allow_camera_upload)
+        send_invite(
+            email, libs, allow_sync, allow_tv, allow_camera_upload, restrictions
+        )
     except PlexInvitationError as e:
         if "already sharing" in e.message.lower():
             # User already has a share — update libraries and permissions instead
@@ -1811,6 +1844,9 @@ def _invite_user(email: str, code: str, _user_id: int, server: MediaServer) -> N
             }
             client.update_user_libraries(email, libs if libs else None)
             client.update_user_permissions(email, permissions)
+            # The two calls above clear the filters of the share.
+            if restrictions:
+                client.update_user_restrictions(email, restrictions)
         else:
             # Re-raise PlexInvitationError to preserve the user-friendly message
             raise

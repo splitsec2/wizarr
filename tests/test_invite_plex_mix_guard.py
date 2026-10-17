@@ -49,7 +49,8 @@ def test_unhandled_type_without_plex_is_allowed(session):
 
 
 def test_plex_options_show_advice(client, session):
-    from tests.test_invite_library_selection import HX, _login
+    from tests.fork_helpers import login as _login
+    from tests.test_invite_library_selection import HX
 
     _login(client, session)
     _server(session, "Movies", "plex")

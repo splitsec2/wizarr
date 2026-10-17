@@ -162,17 +162,13 @@ def test_public_paths_need_no_token(client, session, access_mode):
     assert client.get("/health").status_code == 200
 
 
-def test_api_keys_work_without_a_token(client, session, access_mode):
-    admin = AdminAccount(username="keyowner")
-    admin.set_password("TestPass123")
-    db.session.add(admin)
-    db.session.commit()
+def test_api_keys_work_without_a_token(client, admin_user, access_mode):
     raw_key = "cf-access-test-key"
     db.session.add(
         ApiKey(
             name="Test",
             key_hash=hashlib.sha256(raw_key.encode()).hexdigest(),
-            created_by_id=admin.id,
+            created_by_id=admin_user.id,
             is_active=True,
         )
     )

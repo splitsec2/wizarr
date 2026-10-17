@@ -120,6 +120,11 @@ class Invitation(db.Model):
     plex_allow_sync = db.Column(db.Boolean, default=False, nullable=True)
     plex_home = db.Column(db.Boolean, default=False, nullable=True)
     plex_allow_channels = db.Column(db.Boolean, default=False, nullable=True)
+    # Plex content restrictions (label and rating filters) for each library
+    # type, in the plexapi filter format. See app/services/plex_restrictions.py.
+    plex_filter_movies = db.Column(db.JSON, nullable=True)
+    plex_filter_television = db.Column(db.JSON, nullable=True)
+    plex_filter_music = db.Column(db.JSON, nullable=True)
     server_id = db.Column(
         db.Integer, db.ForeignKey("media_server.id", ondelete="SET NULL"), nullable=True
     )
@@ -169,10 +174,6 @@ class Invitation(db.Model):
         """Get all users who have used this invitation."""
         return list(self.users)  # type: ignore
 
-    def get_user_count(self):
-        """Get the total number of users who have used this invitation."""
-        return len(list(self.users))  # type: ignore
-
     def access_ends(self) -> dict[str, datetime]:
         """Per-server access end times set on this invite, by server name.
         The invite table sets ``preloaded_access_ends`` for its whole page."""
@@ -188,15 +189,6 @@ class Invitation(db.Model):
             )
         ).all()
         return dict(tuple(row) for row in rows)
-
-    def get_first_user(self):
-        """Get the first user who used this invitation (for backward compatibility)."""
-        users_list = list(self.users)  # type: ignore
-        return users_list[0] if users_list else None
-
-    def has_user(self, user):
-        """Check if a specific user has used this invitation."""
-        return user in list(self.users)  # type: ignore
 
 
 class Settings(db.Model):

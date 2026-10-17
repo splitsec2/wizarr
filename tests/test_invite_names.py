@@ -11,12 +11,13 @@ import pytest
 from app.extensions import db
 from app.models import AdminAccount, Identity, Invitation, MediaServer, User
 from app.services.invites import create_invite, mark_server_used
+from tests.fork_helpers import login as _login
 from tests.test_cloudflare_access_auth import (  # noqa: F401
     _headers,
     _token,
     access_mode,
 )
-from tests.test_invite_library_selection import HX, _login
+from tests.test_invite_library_selection import HX
 
 
 def _server(session, name="Movies", server_type="jellyfin"):
