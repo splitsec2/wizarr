@@ -39,3 +39,32 @@ def test_the_form_scrolls_between_the_title_and_the_buttons(admin_client):
 
     assert "overflow-y-auto" in form[body_open : body_open + 200]
     assert body_open < footer
+
+
+def _scripts(html):
+    return re.findall(r"<script>(.*?)</script>", html, re.S)
+
+
+def test_opening_the_modal_does_not_depend_on_the_rest_of_the_script(admin_client):
+    # A script that fails to parse runs nothing, so a showModal() in the same
+    # script as everything else leaves the dialog hidden after any error.
+    scripts = _scripts(_modal(admin_client))
+
+    assert (
+        scripts[0].strip() == "document.getElementById('invite-dialog')?.showModal();"
+    )
+
+
+def test_the_script_can_run_again_each_time_the_modal_opens(admin_client):
+    # htmx runs the modal's script on every open, in the one page. A top-level
+    # const or let is "already declared" the second time and the script dies.
+    top_level = re.compile(r"^ {4}(const|let|class)\s", re.M)
+
+    for script in _scripts(_modal(admin_client)):
+        assert top_level.search(script) is None
+
+
+def test_the_swap_listener_is_added_once(admin_client):
+    html = _modal(admin_client)
+
+    assert html.count("wizarrInviteModalSwapListener") == 2

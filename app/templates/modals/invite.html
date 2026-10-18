@@ -9,9 +9,8 @@
           class="mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-full overflow-hidden rounded-t-2xl bg-white p-0 text-left text-gray-900 shadow-xl transition-[translate,opacity] duration-200 ease-out open:flex open:flex-col starting:open:translate-y-8 starting:open:opacity-0 motion-reduce:transition-none backdrop:bg-gray-500/75 backdrop:backdrop-blur-sm sm:m-auto sm:max-h-[85dvh] sm:max-w-lg sm:rounded-xl dark:bg-gray-800 dark:text-white">
     <div id="inviteModalContent" class="flex min-h-0 flex-1 flex-col">{% include "modals/invite_content.html" %}</div>
   </dialog>
+  <script>document.getElementById('invite-dialog')?.showModal();</script>
   <script>
-      document.getElementById('invite-dialog')?.showModal();
-
     function copyLink() {
         const copyText = document.getElementById("link");
         copyToClipboard(copyText.value, (success) => {
@@ -50,7 +49,7 @@
 
     // The invite is made in four steps inside one form: the same fields and the
     // same POST as before, only shown a step at a time.
-    const inviteWizard = (function () {
+    window.inviteWizard = (function () {
         const form = document.getElementById("invite-form");
         if (!form) {
             return { submit: () => true };
@@ -284,20 +283,23 @@
         document.getElementById('invite-modal').innerHTML = '';
     }
 
-    // Handle successful form submission in modal context
-    document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (evt.detail.target.classList?.contains('dropdown-content')) {
-            const dropdown = evt.detail.target.closest('[id^="libMenu"]');
-            if (dropdown) {
-                dropdown.dataset.loaded = 'true';
+    // This script runs again each time the modal opens. Add the listener one
+    // time only, or each open adds one more invitation table refresh.
+    if (!window.wizarrInviteModalSwapListener) {
+        window.wizarrInviteModalSwapListener = true;
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.classList?.contains('dropdown-content')) {
+                const dropdown = evt.detail.target.closest('[id^="libMenu"]');
+                if (dropdown) {
+                    dropdown.dataset.loaded = 'true';
+                }
             }
-        }
 
-        if (evt.detail.target.id === 'inviteModalContent') {
-            // Check if this is the success view
-            const link = document.getElementById('link');
-            if (link) {
-                // Refresh the invitations table on the main page
+            // The success view has the link field. Refresh the invitations
+            // table if the current page shows it.
+            if (evt.detail.target.id === 'inviteModalContent' &&
+                document.getElementById('link') &&
+                document.getElementById('invite_table')) {
                 htmx.ajax('POST', '/invite/table', {
                     target: '#invite_table',
                     swap: 'outerHTML',
@@ -305,10 +307,8 @@
                         server: document.getElementById('invite_server_filter')?.value || ''
                     }
                 });
-
-                // Removed auto-close to allow users ample time to copy the link manually
             }
-        }
-    });
+        });
+    }
   </script>
 {% endif %}
