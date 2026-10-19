@@ -68,3 +68,14 @@ def test_the_swap_listener_is_added_once(admin_client):
     html = _modal(admin_client)
 
     assert html.count("wizarrInviteModalSwapListener") == 2
+
+
+def test_create_another_wires_the_wizard_to_the_new_form(admin_client):
+    # "Create another" swaps a fresh form into the open dialog without running
+    # the script again, so the wizard has to be set up again after that swap.
+    html = _modal(admin_client)
+
+    assert "function setUpInviteWizard()" in html
+    swap = html[html.index("wizarrInviteModalSwapListener = true") :]
+    assert "target.id === 'inviteModalContent'" in swap
+    assert "window.inviteWizard = setUpInviteWizard();" in swap

@@ -49,7 +49,7 @@
 
     // The invite is made in four steps inside one form: the same fields and the
     // same POST as before, only shown a step at a time.
-    window.inviteWizard = (function () {
+    function setUpInviteWizard() {
         const form = document.getElementById("invite-form");
         if (!form) {
             return { submit: () => true };
@@ -208,7 +208,8 @@
                 return validateServerSelection();
             },
         };
-    })();
+    }
+    window.inviteWizard = setUpInviteWizard();
 
     function updatePrimaryServer() {
         // This function is no longer needed since we removed the hidden server_id field
@@ -293,6 +294,12 @@
                 if (dropdown) {
                     dropdown.dataset.loaded = 'true';
                 }
+            }
+
+            // "Create another" swaps a new form into the open dialog without
+            // running this script again, so wire the wizard to the new form.
+            if (evt.detail.target.id === 'inviteModalContent') {
+                window.inviteWizard = setUpInviteWizard();
             }
 
             // The success view has the link field. Refresh the invitations
