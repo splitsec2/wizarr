@@ -5,6 +5,7 @@
 {% extends "base.html" %}
 {% block main %}
   <section class="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-slate-900 relative overflow-hidden">
+    {% include "_invite_backdrop.html" %}
     <div class="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-orange-900/60 to-slate-900/80"></div>
     <div class="absolute inset-0 overflow-hidden" aria-hidden="true">
       <div class="absolute -top-40 -right-80 w-80 h-80 bg-orange-400 rounded-full mix-blend-multiply filter blur-xl opacity-40 invite-blob">

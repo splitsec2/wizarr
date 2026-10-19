@@ -1,0 +1,95 @@
+{# Rows of icons drifting across the invite page background, chosen by the kind of
+   media the invite shares (app/services/invite_backdrop.py). Expects `invitation`
+   or `code` in the context; with neither, or no themed server, nothing is drawn. #}
+{% set rows = invite_icon_rows(invite_kinds(invitation | default(none), code | default(none))) %}
+{% if rows %}
+  <svg width="0"
+       height="0"
+       style="position:absolute"
+       aria-hidden="true"
+       focusable="false">
+    <defs>
+    <symbol id="bd-film" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" />
+    </symbol>
+    <symbol id="bd-tv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="5" width="20" height="13" rx="2" />
+    <path d="M8 21h8M12 18v3" />
+    </symbol>
+    <symbol id="bd-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M10 8.5v7l6-3.5z" />
+    </symbol>
+    <symbol id="bd-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5l11-2v13" />
+    <circle cx="6" cy="18" r="3" />
+    <circle cx="17" cy="16" r="3" />
+    </symbol>
+    <symbol id="bd-disc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="2.5" />
+    </symbol>
+    <symbol id="bd-headphones" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 15v-3a8 8 0 0 1 16 0v3" />
+    <rect x="3" y="14" width="4" height="7" rx="1.5" />
+    <rect x="17" y="14" width="4" height="7" rx="1.5" />
+    </symbol>
+    <symbol id="bd-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 6c-2-1.5-5-2-9-2v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2z" />
+    <path d="M12 6v14" />
+    </symbol>
+    <symbol id="bd-bookmark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 3h12v18l-6-4-6 4z" />
+    </symbol>
+    </defs>
+  </svg>
+  <div class="invite-icons absolute inset-0 overflow-hidden text-white"
+       aria-hidden="true">
+    {% for row in rows %}
+      <div class="invite-icons-row invite-icons-row-{{ loop.index }}">
+        {% for copy in range(2) %}
+          {% for icon in row %}
+            <svg class="invite-icon">
+              <use href="#bd-{{ icon }}" />
+            </svg>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+  <style>
+      .invite-icons { opacity: 0.16; }
+      .invite-icons-row {
+          position: absolute;
+          display: flex;
+          align-items: center;
+          width: max-content;
+          pointer-events: none;
+      }
+      .invite-icon {
+          width: 3.5rem;
+          height: 3.5rem;
+          margin-right: 3.5rem;
+          flex: none;
+      }
+      .invite-icons-row-1 { top: 6%; animation: invite-icons-left 70s linear infinite; }
+      .invite-icons-row-2 { top: 28%; animation: invite-icons-right 60s linear infinite; }
+      .invite-icons-row-3 { top: 52%; animation: invite-icons-left 80s linear infinite; }
+      .invite-icons-row-4 { top: 74%; animation: invite-icons-right 65s linear infinite; }
+      @keyframes invite-icons-left {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+      }
+      @keyframes invite-icons-right {
+          from { transform: translateX(-50%); }
+          to { transform: translateX(0); }
+      }
+      @media (max-width: 768px) {
+          .invite-icon { width: 2.75rem; height: 2.75rem; margin-right: 2.75rem; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+          .invite-icons-row { animation: none; }
+      }
+  </style>
+{% endif %}

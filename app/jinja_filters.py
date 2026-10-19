@@ -313,6 +313,10 @@ def register_filters(app):
     from app.services.password_reset import reset_account
 
     app.jinja_env.globals.setdefault("reset_account", reset_account)
+    from app.services.invite_backdrop import icon_rows, kinds_for_invitation
+
+    app.jinja_env.globals.setdefault("invite_kinds", kinds_for_invitation)
+    app.jinja_env.globals.setdefault("invite_icon_rows", icon_rows)
     app.jinja_env.filters.setdefault("server_type_tag", server_type_tag)
     app.jinja_env.filters.setdefault("server_name_tag", server_name_tag)
     app.jinja_env.filters.setdefault("server_colour", _server_colour)

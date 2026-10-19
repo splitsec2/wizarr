@@ -158,10 +158,14 @@ def legacy_join(monkeypatch):
     monkeypatch.setattr("app.services.invite_steps.uses_steps", lambda _inv: False)
 
 
-def test_join_page_sends_its_invite_code(client, session, legacy_join):
+def test_join_page_draws_icons_and_asks_for_no_posters(client, session, legacy_join):
+    # The join page used to send its invite code here for artwork from the invite's
+    # server. It shows the icon backdrop now; the route keeps the code parameter for
+    # a later version where a service supplies its own pictures.
     _family, shared, _books = _servers()
     _invite("JOINPAGE1", [shared])
 
     body = client.get("/j/JOINPAGE1").get_data(as_text=True)
-    assert 'const posterCode = "JOINPAGE1";' in body
-    assert "encodeURIComponent(posterCode)" in body
+    assert "cinema-posters" not in body
+    assert "posterCode" not in body
+    assert "invite-icons-row" in body
