@@ -641,7 +641,9 @@ def test_a_held_service_counts_as_done_and_the_step_completes(
     resp = client.post(
         "/j/STEPS123/steps/account", data=_account_form("listener@example.com")
     )
-    assert resp.headers["Location"].endswith("/j/STEPS123/steps")
+    assert resp.headers["Location"].endswith(
+        "/wizard/"
+    )  # one row: on to the instructions
     assert list(fake_media) == [books.id]
     assert _states(invitation) == {abs_server.id: "done", books.id: "done"}
 
@@ -654,7 +656,7 @@ def test_a_step_with_everything_held_completes_without_an_account(
     _holds(books, "LISTENER@example.com")
     _verified(client, "STEPS123", "listener@example.com")
     resp = client.get("/j/STEPS123/steps/account")
-    assert resp.headers["Location"].endswith("/j/STEPS123/steps")
+    assert resp.headers["Location"].endswith("/wizard/")
     assert fake_media == {}
     assert _states(invitation) == {abs_server.id: "done", books.id: "done"}
 

@@ -162,6 +162,17 @@ def _first_page_after_welcome(invitation) -> str:
     return _checklist_url(invitation)
 
 
+def _one_service(invitation) -> bool:
+    return len(invite_steps.steps_for(invitation)) == 1
+
+
+def _after_step(invitation):
+    """A finished step: the list when there are several, else on to the wizard."""
+    if _one_service(invitation):
+        return redirect(enter_wizard(invitation))
+    return redirect(_checklist_url(invitation))
+
+
 def _back_url(invitation) -> str | None:
     """The way back to the list, only when there is a list of more than one."""
     if len(invite_steps.steps_for(invitation)) > 1:
@@ -298,7 +309,7 @@ def _plex_step(invitation, step):
     _mark_done(invitation, step)
     if _has_notes(step):
         return _notes_page(invitation, step)
-    return redirect(_checklist_url(invitation))
+    return _after_step(invitation)
 
 
 # ── Account: one form, one password, for every other server ─────────────────
@@ -351,7 +362,7 @@ def _account_step(invitation, step):
             == invite_steps.DONE
         ):
             _mark_done(invitation, step)
-            return redirect(_checklist_url(invitation))
+            return _after_step(invitation)
         earlier = (
             invite_steps.earlier_account(invitation, person)
             if session.get(_DID_A_STEP) == invitation.code
@@ -410,7 +421,7 @@ def _account_step(invitation, step):
     _mark_done(invitation, step)
     if _has_notes(step):
         return _notes_page(invitation, step)
-    return redirect(_checklist_url(invitation))
+    return _after_step(invitation)
 
 
 def _notes_page(invitation, step):
@@ -419,6 +430,11 @@ def _notes_page(invitation, step):
         invitation=invitation,
         step=step,
         back_url=_checklist_url(invitation),
+        finish_url=(
+            url_for("invite_steps.finish", code=invitation.code)
+            if _one_service(invitation)
+            else None
+        ),
     )
 
 

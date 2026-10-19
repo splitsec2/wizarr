@@ -16,6 +16,12 @@
   {% with servers=step.servers %}
     {% include "_server_notes.html" %}
   {% endwith %}
-  <a href="{{ back_url }}"
-     class="block w-full py-3 px-6 text-white font-semibold text-center bg-gradient-to-r from-primary to-primary_hover hover:from-primary_hover hover:to-primary rounded-xl transition-all duration-200 shadow-lg focus:ring-4 focus:ring-primary/30 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">{{ _("Back to your checklist") }}</a>
+  {% set button_class = "block w-full py-3 px-6 text-white font-semibold text-center bg-gradient-to-r from-primary to-primary_hover hover:from-primary_hover hover:to-primary rounded-xl transition-all duration-200 shadow-lg focus:ring-4 focus:ring-primary/30 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed" %}
+  {% if finish_url %}
+    <form method="post" action="{{ finish_url }}">
+      <button type="submit" class="{{ button_class }}">{{ _("Continue") }}</button>
+    </form>
+  {% else %}
+    <a href="{{ back_url }}" class="{{ button_class }}">{{ _("Back to your checklist") }}</a>
+  {% endif %}
 {% endblock shell_card %}

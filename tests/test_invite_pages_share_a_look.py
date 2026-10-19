@@ -5,7 +5,7 @@ two designs."""
 
 import pytest
 
-from tests.test_invite_steps import plex_abs, setup_done  # noqa: F401
+from tests.test_invite_steps import fake_plex, plex_abs, setup_done  # noqa: F401
 
 BACKGROUND = "from-[#00281a] via-[#004225] to-[#00281a]"
 CARD = "bg-gray-800/40 backdrop-blur-xl"
@@ -104,3 +104,32 @@ def test_the_plex_step_of_a_list_keeps_the_way_back(client):
     plex_step = next(s for s in invite_steps.steps_for(invitation) if s.is_plex)
     page = client.get(f"/j/STEPS123/steps/{plex_step.key}").get_data(as_text=True)
     assert "Back to your checklist" in page
+
+
+@pytest.mark.usefixtures("plex_only", "fake_plex")
+def test_after_the_only_service_the_person_goes_on_to_the_instructions(client):
+    step = client.post("/j/ONEPLEX1/welcome").headers["Location"]
+    resp = client.post(step, data={"token": "plex-token"})
+    assert resp.status_code in (200, 302)
+    if resp.status_code == 200:
+        # The address page: its one button goes on, not back to a list.
+        html = resp.get_data(as_text=True)
+        assert "Back to your checklist" not in html
+        assert "/steps/finish" in html
+        resp = client.post("/j/ONEPLEX1/steps/finish")
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/wizard/")
+
+
+@pytest.mark.usefixtures("plex_abs", "fake_plex")
+def test_after_one_of_several_services_the_person_returns_to_the_list(client):
+    from app.models import Invitation
+    from app.services import invite_steps
+
+    invitation = Invitation.query.filter_by(code="STEPS123").first()
+    plex_step = next(s for s in invite_steps.steps_for(invitation) if s.is_plex)
+    resp = client.post(f"/j/STEPS123/steps/{plex_step.key}", data={"token": "t"})
+    if resp.status_code == 200:
+        assert "Back to your checklist" in resp.get_data(as_text=True)
+    else:
+        assert resp.headers["Location"].endswith("/steps")
