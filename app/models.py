@@ -257,27 +257,47 @@ class User(db.Model, UserMixin):
         super().__init__(**kwargs)
 
     def invite_setup(self) -> list[tuple[str, str]]:
-        """Each service on the checklist invite this account joined with, and
-        whether it was set up ("done"), "skipped", "failed" on its last try or still "todo"."""
+        """Each service on the checklist invites this person joined with, and
+        whether it was set up ("done"), "skipped", "failed" on its last try or
+        still "todo". Every invite behind any of their accounts counts, so a
+        later invite does not hide an earlier one; a service on two invites
+        shows its best state."""
         from app.services import invite_steps
 
-        invitation = self._joined_invitation()
-        if invitation is None or not invite_steps.uses_steps(invitation):
-            return []
-        person = (
-            (self.email or "").strip().lower()
-            if invite_steps.multi_use(invitation)
-            else invite_steps.SINGLE_PERSON
-        )
-        states = invite_steps.server_states(invitation, person)
-        return [
-            (
-                step.name,
-                invite_steps.state_of(step, states)
-                or ("failed" if invite_steps.step_failed(step, states) else "todo"),
+        rank = {"done": 3, "skipped": 2, "failed": 1, "todo": 0}
+        rows: dict[str, str] = {}
+        for invitation in self._all_joined_invitations():
+            if not invite_steps.uses_steps(invitation):
+                continue
+            person = (
+                (self.email or "").strip().lower()
+                if invite_steps.multi_use(invitation)
+                else invite_steps.SINGLE_PERSON
             )
-            for step in invite_steps.steps_for(invitation)
-        ]
+            states = invite_steps.server_states(invitation, person)
+            for step in invite_steps.steps_for(invitation):
+                state = invite_steps.state_of(step, states) or (
+                    "failed" if invite_steps.step_failed(step, states) else "todo"
+                )
+                if step.name not in rows or rank[state] > rank[rows[step.name]]:
+                    rows[step.name] = state
+        return list(rows.items())
+
+    def _all_joined_invitations(self) -> "list[Invitation]":
+        """The invites behind each of this person's accounts, oldest first, one
+        per code. The users table sets ``preloaded_invitations`` for its page."""
+        if "preloaded_invitations" in self.__dict__:
+            return self.__dict__["preloaded_invitations"]
+        accounts = self.__dict__.get("accounts") or [self]
+        codes = {a.code for a in accounts if a.code}
+        if not codes:
+            return []
+        found: dict[str, Invitation] = {}
+        for invitation in Invitation.query.filter(Invitation.code.in_(codes)).order_by(
+            Invitation.id
+        ):
+            found.setdefault(invitation.code, invitation)
+        return list(found.values())
 
     def _joined_invitation(self) -> "Invitation | None":
         """The invite this account joined with (the first, if two share the

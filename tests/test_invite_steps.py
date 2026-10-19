@@ -387,6 +387,30 @@ def test_users_show_how_far_their_invite_got(client, plex_abs, fake_plex):
     assert "AudioBookShelf (to do)" in html
 
 
+def test_the_setup_line_lists_every_invite_the_person_has(client, plex_abs, fake_plex):
+    _invitation, plex, _abs = plex_abs
+    client.post("/j/STEPS123/steps/plex", data={"token": "t"})
+    first = User.query.filter_by(server_id=plex.id).one()
+    # A second invite for another service, joined by the same person.
+    other = _server("Navidrome", "navidrome")
+    _invite(other, code="SECOND12")
+    second = User(
+        token="tok-second",
+        username="plexsam",
+        email=first.email,
+        code="SECOND12",
+        server_id=other.id,
+    )
+    db.session.add(second)
+    db.session.commit()
+    first.accounts = [first, second]
+    assert first.invite_setup() == [
+        ("AllThePopcorn", "done"),
+        ("AudioBookShelf", "todo"),
+        ("Navidrome", "todo"),
+    ]
+
+
 def _name_block(html: str) -> str:
     """The text inside the first card's name block (the div around the name, the
     email and the invite lines)."""

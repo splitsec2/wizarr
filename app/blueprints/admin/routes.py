@@ -1538,6 +1538,10 @@ def _group_users_for_display(user_list):
         primary.allowSync = allow_sync
         primary.invited_date = invited_date
         primary.preloaded_invitation = invitations.get(code)
+        account_codes = dict.fromkeys(a.code for a in lst if a.code)
+        primary.preloaded_invitations = [
+            invitations[c] for c in account_codes if c in invitations
+        ]
         # Note: allow_downloads and allow_live_tv are properties - no need to set them
         cards.append(primary)
     return cards
