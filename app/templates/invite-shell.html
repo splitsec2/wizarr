@@ -1,0 +1,59 @@
+{# The look of the invite pages after the link is opened: the dark background of
+   the Plex sign-in page, a heading and one glass card, so the invitee does not
+   move between two designs. A page fills shell_heading (and optionally
+   shell_subheading) and shell_card; the Plex page keeps its own markup. #}
+{% extends "base.html" %}
+{% block main %}
+  <section class="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-slate-900 relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-orange-900/60 to-slate-900/80"></div>
+    <div class="absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div class="absolute -top-40 -right-80 w-80 h-80 bg-orange-400 rounded-full mix-blend-multiply filter blur-xl opacity-40 invite-blob">
+      </div>
+      <div class="absolute -bottom-80 -left-40 w-80 h-80 bg-amber-500 rounded-full mix-blend-multiply filter blur-xl opacity-50 invite-blob invite-blob-2">
+      </div>
+      <div class="absolute top-40 left-40 w-80 h-80 bg-yellow-600 rounded-full mix-blend-multiply filter blur-xl opacity-45 invite-blob invite-blob-4">
+      </div>
+    </div>
+    <div class="relative flex flex-col items-center justify-center px-6 py-10 mx-auto min-h-screen">
+      {% block shell_back %}
+      {% endblock shell_back %}
+      {% block shell_header %}
+        <div class="text-center mb-8">
+          <h1 class="mb-4 text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-orange-200 to-amber-400 leading-tight">
+            {% block shell_heading %}
+            {% endblock shell_heading %}
+          </h1>
+          {% block shell_subheading %}
+          {% endblock shell_subheading %}
+        </div>
+      {% endblock shell_header %}
+      <div class="w-full max-w-md">
+        <div class="bg-gray-800/40 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden">
+          <div class="p-8 space-y-6"
+               {% block shell_card_attrs %}
+               {% endblock shell_card_attrs %}>
+            {% block shell_card %}
+            {% endblock shell_card %}
+          </div>
+        </div>
+        <div class="text-center mt-6">
+          <p class="text-gray-400 text-sm">{{ _("Secure invitation system powered by Wizarr") }}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <style>
+      @keyframes invite-blob {
+          0% { transform: translate(0px, 0px) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0px, 0px) scale(1); }
+      }
+      .invite-blob { animation: invite-blob 7s infinite; }
+      .invite-blob-2 { animation-delay: 2s; }
+      .invite-blob-4 { animation-delay: 4s; }
+      @media (prefers-reduced-motion: reduce) {
+          .invite-blob { animation: none; }
+      }
+  </style>
+{% endblock main %}

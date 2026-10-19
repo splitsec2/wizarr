@@ -1,5 +1,5 @@
 {# The first page of a checklist invite: who it is from and what it covers. #}
-{% extends "base.html" %}
+{% extends "invite-shell.html" %}
 {% block title %}
   {{ _("You've been invited to join the %(name)s server!", name=household) }}
 {% endblock title %}
@@ -9,36 +9,34 @@
 {% block og_description %}
   {{ _("You've been invited to join the %(name)s server!", name=household) }}
 {% endblock og_description %}
-{% block main %}
-  <section class="py-5 bg-gray-50 dark:bg-gray-900">
-    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto max-w-md animate__animated animate__fadeIn">
-      <div class="w-full bg-white rounded-lg shadow dark:border dark:bg-gray-800 dark:border-gray-700">
-        <div class="p-6 space-y-4 sm:p-8">
-          <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
-            {{ _("You've been invited to join the %(name)s server!", name=household) }}
-          </h1>
-          {% if inviter %}
-            <p id="invite-welcome-inviter"
-               class="text-sm text-gray-600 dark:text-gray-400">{{ inviter }}</p>
-          {% endif %}
-          <p class="text-sm text-gray-600 dark:text-gray-400">{{ _("Here is what you can set up:") }}</p>
-          <ul class="space-y-2" id="invite-welcome-pieces">
-            {% for step in steps %}
-              <li class="flex items-center gap-2 text-gray-900 dark:text-white font-medium break-words">
-                <span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
-                {{ step.name }}
-              </li>
-            {% endfor %}
-          </ul>
-          <form method="post"
-                action="{{ url_for('invite_steps.welcome', code=invitation.code) }}">
-            <button type="submit"
-                    class="w-full text-white bg-primary hover:bg-primary_hover font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-              {{ _("Get started") }}
-            </button>
-          </form>
-        </div>
-      </div>
+{% block shell_header %}
+  <div class="text-center mb-8">
+    <h1 class="mb-6 text-4xl md:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-orange-200 to-amber-400 leading-tight">
+      {{ _("You've been invited!") }}
+    </h1>
+    <div class="mb-4">
+      <p class="text-sm text-gray-400 uppercase tracking-wider font-medium">{{ _("To join") }}</p>
+      <p class="text-2xl md:text-3xl font-bold text-white mt-1">{{ household }}</p>
     </div>
-  </section>
-{% endblock main %}
+    {% if inviter %}
+      <p id="invite-welcome-inviter"
+         class="text-lg text-gray-300 font-light max-w-md mx-auto leading-relaxed">{{ inviter }}</p>
+    {% endif %}
+  </div>
+{% endblock shell_header %}
+{% block shell_card %}
+  <p class="text-gray-300 text-sm text-center">{{ _("Here is what you can set up:") }}</p>
+  <ul class="space-y-3" id="invite-welcome-pieces">
+    {% for step in steps %}
+      <li class="flex items-center gap-3 text-white font-medium break-words">
+        <span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+        {{ step.name }}
+      </li>
+    {% endfor %}
+  </ul>
+  <form method="post"
+        action="{{ url_for('invite_steps.welcome', code=invitation.code) }}">
+    <button type="submit"
+            class="w-full py-3 px-6 text-white font-semibold text-center bg-gradient-to-r from-primary to-primary_hover hover:from-primary_hover hover:to-primary rounded-xl transition-all duration-200 shadow-lg focus:ring-4 focus:ring-primary/30 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">{{ _("Get started") }}</button>
+  </form>
+{% endblock shell_card %}

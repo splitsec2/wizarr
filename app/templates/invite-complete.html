@@ -1,29 +1,22 @@
 {# The last page of an invite: what the person set up and how to start. #}
-{% extends "base.html" %}
+{% extends "invite-shell.html" %}
 {% block title %}
   {{ _("You're all set") }}
 {% endblock title %}
-{% block main %}
-  <section class="py-5 bg-gray-50 dark:bg-gray-900">
-    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto max-w-md animate__animated animate__fadeIn">
-      <div class="w-full bg-white rounded-lg shadow dark:border dark:bg-gray-800 dark:border-gray-700">
-        <div class="p-6 space-y-4 sm:p-8" id="invite-complete">
-          <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">
-            {{ _("You're all set") }}
-          </h1>
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            {{ _("Welcome to the %(name)s server. Here's how to start using what you set up.", name=household) }}
-          </p>
-          {% include "_server_notes.html" %}
-          {% if other_names %}
-            <p class="text-sm text-gray-700 dark:text-gray-300"
-               id="invite-complete-others">{{ _("Also set up: %(names)s", names=other_names|join(", ")) }}</p>
-          {% endif %}
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            {{ _("If something doesn't work, ask the person who sent you this invite.") }}
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-{% endblock main %}
+{% block shell_heading %}
+  {{ _("You're all set") }}
+{% endblock shell_heading %}
+{% block shell_card_attrs %}
+  id="invite-complete"
+{% endblock shell_card_attrs %}
+{% block shell_card %}
+  <p class="text-gray-300 text-sm">
+    {{ _("Welcome to the %(name)s server. Here's how to start using what you set up.", name=household) }}
+  </p>
+  {% include "_server_notes.html" %}
+  {% if other_names %}
+    <p class="text-gray-300 text-sm"
+       id="invite-complete-others">{{ _("Also set up: %(names)s", names=other_names|join(", ")) }}</p>
+  {% endif %}
+  <p class="text-gray-300 text-sm">{{ _("If something doesn't work, ask the person who sent you this invite.") }}</p>
+{% endblock shell_card %}
