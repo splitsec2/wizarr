@@ -210,7 +210,8 @@ def test_form_asks_for_one_new_password(client, abs_books):
     assert "Use a new password, not one you use anywhere else." in html
     assert 'name="username"' in html
     assert "A short sentence works well." in html
-    assert 'href="/j/BOOKS123/steps"' in html
+    # One row: there is no list to go back to.
+    assert 'href="/j/BOOKS123/steps"' not in html
 
 
 @pytest.mark.parametrize(

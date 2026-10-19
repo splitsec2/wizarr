@@ -9,17 +9,17 @@
   {{ _("You've been invited to join the %(name)s server!", name=server_name) }}
 {% endblock og_description %}
 {% block main %}
-  <section class="min-h-screen bg-gradient-to-br from-slate-900 via-orange-900 to-slate-900 relative overflow-hidden">
+  <section class="min-h-screen bg-gradient-to-br from-[#00281a] via-[#004225] to-[#00281a] relative overflow-hidden">
     {% include "_invite_backdrop.html" %}
     <!-- Overlay gradient to ensure readability -->
-    <div class="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-orange-900/60 to-slate-900/80"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-[#00281a]/80 via-[#004225]/60 to-[#00281a]/80"></div>
     <!-- Animated accent elements -->
     <div class="absolute inset-0 overflow-hidden">
-      <div class="absolute -top-40 -right-80 w-80 h-80 bg-orange-400 rounded-full mix-blend-multiply filter blur-xl opacity-40 animate-blob">
+      <div class="absolute -top-40 -right-80 w-80 h-80 bg-emerald-500 rounded-full mix-blend-multiply filter blur-xl opacity-40 animate-blob">
       </div>
-      <div class="absolute -bottom-80 -left-40 w-80 h-80 bg-amber-500 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-2000">
+      <div class="absolute -bottom-80 -left-40 w-80 h-80 bg-green-600 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-2000">
       </div>
-      <div class="absolute top-40 left-40 w-80 h-80 bg-yellow-600 rounded-full mix-blend-multiply filter blur-xl opacity-45 animate-blob animation-delay-4000">
+      <div class="absolute top-40 left-40 w-80 h-80 bg-teal-600 rounded-full mix-blend-multiply filter blur-xl opacity-45 animate-blob animation-delay-4000">
       </div>
     </div>
     <div class="relative flex flex-col items-center justify-center px-6 mx-auto min-h-screen lg:py-0">
@@ -27,7 +27,11 @@
       <!-- Header -->
       <div class="text-center mb-8">
         <h1 class="mb-6 text-4xl md:text-5xl lg:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-orange-200 to-amber-400 leading-tight">
-          {{ _("You've been invited!") }}
+          {% if form_action %}
+            {{ _("Sign in with Plex") }}
+          {% else %}
+            {{ _("You've been invited!") }}
+          {% endif %}
         </h1>
         {% if server_name %}
           <div class="mb-4">
@@ -35,22 +39,34 @@
             <p class="text-2xl md:text-3xl font-bold text-white mt-1">{{ server_name }}</p>
           </div>
         {% endif %}
-        <p class="text-lg md:text-xl text-gray-300 font-light max-w-md mx-auto leading-relaxed">
-          {{ _("Join the ultimate media server experience.") }}
-        </p>
+        {% if not form_action %}
+          <p class="text-lg md:text-xl text-gray-300 font-light max-w-md mx-auto leading-relaxed">
+            {{ _("Join the ultimate media server experience.") }}
+          </p>
+        {% endif %}
       </div>
       <!-- Card Container -->
       <div class="w-full max-w-md">
         <div class="bg-gray-800/40 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-700/50 overflow-hidden">
           <div class="p-8 space-y-6">
-            <div class="text-center">
-              <h2 class="text-2xl font-bold text-white mb-2">{{ _("Enter Code to Continue") }}</h2>
-              <p class="text-gray-400 text-sm">{{ _("Invitation Code") }}</p>
-            </div>
+            {% if form_action %}
+              <p class="text-gray-300 text-sm text-center" id="plex-step-intro">
+                {{ _("Plex opens in a small window. Sign in there and come back here.") }}
+              </p>
+            {% else %}
+              <div class="text-center">
+                <h2 class="text-2xl font-bold text-white mb-2">{{ _("Enter Code to Continue") }}</h2>
+                <p class="text-gray-400 text-sm">{{ _("Invitation Code") }}</p>
+              </div>
+            {% endif %}
             <form class="space-y-6"
                   action="{{ form_action or url_for('public.join') }}"
                   method="post">
-              {% if not code_error %}
+              {% if form_action and not code_error %}
+                {# Already inside an invite: the code is known, nothing to type. #}
+                <input type="hidden" name="code" id="code" value="{{ code }}">
+                <input type="hidden" name="token" id="token" value="">
+              {% elif not code_error %}
                 <div class="space-y-2">
                   <input minlength="6"
                          maxlength="10"
@@ -65,7 +81,13 @@
                   <input type="hidden" name="token" id="token" value="">
                 </div>
               {% endif %}
-              {% if code_error %}
+              {% if code_error and form_action %}
+                <input type="hidden" name="code" id="code" value="{{ code }}">
+                <input type="hidden" name="token" id="token" value="">
+                <div class="flex items-center space-x-2 text-red-400 text-sm" role="alert">
+                  <span>{{ code_error }}</span>
+                </div>
+              {% elif code_error %}
                 <div class="space-y-2">
                   <input minlength="6"
                          maxlength="10"
@@ -90,7 +112,11 @@
                    role="alert"></div>
               <button onClick="oauth(); return false;"
                       class="w-full py-4 px-6 text-white font-semibold text-lg bg-gradient-to-r from-primary to-primary_hover hover:from-primary_hover hover:to-primary rounded-xl transition-all duration-200 transform hover:scale-[1.02] focus:ring-4 focus:ring-primary/30 focus:outline-none shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
-                {{ _("Join Server") }}
+                {% if form_action %}
+                  {{ _("Sign in with Plex") }}
+                {% else %}
+                  {{ _("Join Server") }}
+                {% endif %}
               </button>
             </form>
           </div>
@@ -146,7 +172,7 @@
 
       const PLEX_MSG = {
           blocked: {{ _("Pop-up blocked. Allow pop-ups for this site and try again.")|tojson }},
-          cancelled: {{ _("Sign-in cancelled. Hit Join Server to try again.")|tojson }},
+          cancelled: {{ _("Sign-in cancelled. Press the button to try again.")|tojson }},
           failed: {{ _("Plex sign-in failed. Try again, or contact your server admin.")|tojson }},
       };
 

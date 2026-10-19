@@ -152,6 +152,23 @@ def _inviter_line(invitation) -> str | None:
     return None
 
 
+def _first_page_after_welcome(invitation) -> str:
+    """One service to set up goes straight to it; several start at the list."""
+    steps = invite_steps.steps_for(invitation)
+    if len(steps) == 1:
+        _invitation, step = _open_step(invitation.code, steps[0].key)
+        if step is not None:
+            return url_for("invite_steps.run_step", code=invitation.code, key=step.key)
+    return _checklist_url(invitation)
+
+
+def _back_url(invitation) -> str | None:
+    """The way back to the list, only when there is a list of more than one."""
+    if len(invite_steps.steps_for(invitation)) > 1:
+        return _checklist_url(invitation)
+    return None
+
+
 @invite_steps_bp.route("/j/<code>/welcome", methods=["GET", "POST"])
 @limiter.limit("50 per minute")
 def welcome(code):
@@ -164,7 +181,7 @@ def welcome(code):
         if invitation.code.lower() not in seen:
             seen.append(invitation.code.lower())
         session[invite_steps.WELCOMED_SESSION_KEY] = seen
-        return redirect(_checklist_url(invitation))
+        return redirect(_first_page_after_welcome(invitation))
     InviteCodeManager.store_invite_code(invitation.code)
     return render_template(
         "invite-welcome.html",
@@ -245,7 +262,7 @@ def _plex_page(invitation, step, code_error=None):
     context["form_action"] = url_for(
         "invite_steps.run_step", code=invitation.code, key=step.key
     )
-    context["back_url"] = _checklist_url(invitation)
+    context["back_url"] = _back_url(invitation)
     if code_error:
         context["code_error"] = code_error
     return render_template("user-plex-login.html", **context)
@@ -322,7 +339,7 @@ def _account_step(invitation, step):
             step=step,
             values=values or {},
             error=error,
-            back_url=_checklist_url(invitation),
+            back_url=_back_url(invitation),
         )
 
     person = _person(invitation)

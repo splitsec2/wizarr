@@ -7,7 +7,7 @@ import pytest
 
 from tests.test_invite_steps import plex_abs, setup_done  # noqa: F401
 
-BACKGROUND = "from-slate-900 via-orange-900 to-slate-900"
+BACKGROUND = "from-[#00281a] via-[#004225] to-[#00281a]"
 CARD = "bg-gray-800/40 backdrop-blur-xl"
 
 SHELL_PAGES = (
@@ -56,3 +56,51 @@ def test_the_welcome_leads_with_the_invited_heading(client):
 
     assert "You&#39;ve been invited!" in html or "You've been invited!" in html
     assert html.index("To join") < html.index("invite-welcome-pieces")
+
+
+# ── one service: no repeated "set up" screens ───────────────────────────────
+
+
+@pytest.fixture
+def plex_only(request):
+    request.getfixturevalue("setup_done")
+    from tests.test_invite_steps import _invite, _server
+
+    return _invite(_server("AllThePopcorn", "plex"), code="ONEPLEX1")
+
+
+def test_welcome_for_one_service_goes_straight_to_its_page(client, plex_only):
+    resp = client.post("/j/ONEPLEX1/welcome")
+    assert resp.status_code == 302
+    assert "/steps/" in resp.headers["Location"]
+    assert not resp.headers["Location"].endswith("/steps")
+
+
+@pytest.mark.usefixtures("plex_abs")
+def test_welcome_for_two_services_still_opens_the_list(client):
+    resp = client.post("/j/STEPS123/welcome")
+    assert resp.headers["Location"].endswith("/steps")
+
+
+def test_the_plex_step_does_not_ask_for_the_code_again(client, plex_only):
+    target = client.post("/j/ONEPLEX1/welcome").headers["Location"]
+    html = client.get(target).get_data(as_text=True)
+    assert "Sign in with Plex" in html
+    assert "Enter Code to Continue" not in html
+    assert "Join Server" not in html
+    assert "You&#39;ve been invited" not in html
+    assert "Back to your checklist" not in html
+    assert 'type="hidden" name="code"' in html
+
+
+@pytest.mark.usefixtures("plex_abs")
+def test_the_plex_step_of_a_list_keeps_the_way_back(client):
+    html = client.get("/j/STEPS123/steps").get_data(as_text=True)
+    assert "back-to-checklist" not in html  # the list itself has no back link
+    from app.models import Invitation
+    from app.services import invite_steps
+
+    invitation = Invitation.query.filter_by(code="STEPS123").first()
+    plex_step = next(s for s in invite_steps.steps_for(invitation) if s.is_plex)
+    page = client.get(f"/j/STEPS123/steps/{plex_step.key}").get_data(as_text=True)
+    assert "Back to your checklist" in page

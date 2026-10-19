@@ -1,6 +1,9 @@
 {# Rows of icons drifting across the invite page background, chosen by the kind of
    media the invite shares (app/services/invite_backdrop.py). Expects `invitation`
    or `code` in the context; with neither, or no themed server, nothing is drawn. #}
+{# Each row is drawn `copies` times and slides by exactly one copy, so the loop
+   restarts on an identical picture; five copies cover screens up to 4K wide. #}
+{% set copies = 5 %}
 {% set rows = invite_icon_rows(invite_kinds(invitation | default(none), code | default(none))) %}
 {% if rows %}
   <svg width="0"
@@ -48,7 +51,7 @@
        aria-hidden="true">
     {% for row in rows %}
       <div class="invite-icons-row invite-icons-row-{{ loop.index }}">
-        {% for copy in range(2) %}
+        {% for copy in range(copies) %}
           {% for icon in row %}
             <svg class="invite-icon">
               <use href="#bd-{{ icon }}" />
@@ -79,10 +82,10 @@
       .invite-icons-row-4 { top: 74%; animation: invite-icons-right 65s linear infinite; }
       @keyframes invite-icons-left {
           from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
+          to { transform: translateX(-20%); }
       }
       @keyframes invite-icons-right {
-          from { transform: translateX(-50%); }
+          from { transform: translateX(-20%); }
           to { transform: translateX(0); }
       }
       @media (max-width: 768px) {
