@@ -98,9 +98,20 @@ def multi_use(invitation: Invitation) -> bool:
     return bool(invitation.unlimited)
 
 
-def uses_steps(invitation: Invitation) -> bool:
+def person_for(invitation: Invitation, email: str | None) -> str:
+    """Whose progress a row is: the email on a shared invite, else the one person."""
+    if multi_use(invitation):
+        return (email or "").strip().lower()
+    return SINGLE_PERSON
+
+
+def uses_steps(invitation: Invitation, mail_ready: bool | None = None) -> bool:
     """Whether this invite opens the checklist (all do, except an LDAP one
-    or one with nothing to set up)."""
+    or one with nothing to set up).
+
+    A page of invites passes ``mail_ready`` (``mailer.is_configured()``, asked
+    once) so a shared invite does not look the mail settings up again.
+    """
     from app.services import mailer
     from app.services.ldap.invitation_ldap import InvitationLDAPHandler
 
@@ -109,7 +120,9 @@ def uses_steps(invitation: Invitation) -> bool:
     steps = steps_for(invitation)
     if multi_use(invitation):
         # People on a shared invite are told apart by an emailed code.
-        if not steps or not mailer.is_configured():
+        if mail_ready is None:
+            mail_ready = mailer.is_configured()
+        if not steps or not mail_ready:
             return False
     elif not steps:
         return False
@@ -192,6 +205,23 @@ def server_states_for(invitations: list[Invitation]) -> dict[int, dict[int, str]
     ).all()
     for row in rows:
         found.setdefault(row.invitation_id, {})[row.server_id] = row.state
+    return found
+
+
+def server_states_for_people(
+    pairs: set[tuple[int, str]],
+) -> dict[tuple[int, str], dict[int, str]]:
+    """server_states for many (invite id, person) pairs in one query."""
+    found: dict[tuple[int, str], dict[int, str]] = {pair: {} for pair in pairs}
+    if not pairs:
+        return found
+    rows = InvitationProgress.query.filter(
+        InvitationProgress.invitation_id.in_({invite_id for invite_id, _ in pairs}),
+        InvitationProgress.person.in_({person for _, person in pairs}),
+    ).all()
+    for row in rows:
+        if (row.invitation_id, row.person) in found:
+            found[(row.invitation_id, row.person)][row.server_id] = row.state
     return found
 
 

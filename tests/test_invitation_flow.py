@@ -293,7 +293,9 @@ class TestEndToEndFlow:
     @pytest.fixture(autouse=True)
     def _legacy_join(self, monkeypatch):
         """These cover the plain join path, still used by an LDAP invite."""
-        monkeypatch.setattr("app.services.invite_steps.uses_steps", lambda _inv: False)
+        monkeypatch.setattr(
+            "app.services.invite_steps.uses_steps", lambda _inv, _ready=None: False
+        )
 
     @patch("app.services.invitation_flow.manager.is_invite_valid")
     @patch("app.services.invitation_flow.workflows.get_client_for_media_server")

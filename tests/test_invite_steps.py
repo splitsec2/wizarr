@@ -6,10 +6,12 @@ resumes on any device), a done step can't be run again, and the checklist
 replaces the combined sign-up only for single-use invites.
 """
 
+import contextlib
 import datetime
 import re
 
 import pytest
+from sqlalchemy import event
 
 from app.extensions import db
 from app.models import (
@@ -909,3 +911,76 @@ def test_welcome_refuses_unknown_and_expired_invites(client, setup_done, path):
         expires=past,
     )
     assert "Invalid invite" in client.get(path).get_data(as_text=True)
+
+
+@contextlib.contextmanager
+def _count_queries():
+    counted = []
+
+    def _count(conn, cursor, statement, parameters, context, executemany):
+        counted.append(statement)
+
+    event.listen(db.engine, "before_cursor_execute", _count)
+    try:
+        yield counted
+    finally:
+        event.remove(db.engine, "before_cursor_execute", _count)
+
+
+def _set_up_mail():
+    db.session.add_all(
+        [
+            Settings(key="email_host", value="smtp.example.com"),
+            Settings(key="email_from", value="wizarr@example.com"),
+            Settings(key="email_port", value="587"),
+            Settings(key="email_security", value="starttls"),
+            Settings(key="email_username", value="wizarr"),
+        ]
+    )
+    db.session.commit()
+
+
+def test_the_mail_settings_are_read_in_one_query(setup_done):
+    from app.services import mailer
+
+    _set_up_mail()
+    with _count_queries() as queries:
+        assert mailer.load_config() is not None
+    assert len(queries) == 1
+
+
+def _setup_lines_for(card_count, first=0):
+    """The Set up lines of `card_count` people, each on their own shared invite,
+    built the way the users table builds them."""
+    from app.blueprints.admin.routes import _group_users_for_display
+
+    people = []
+    for n in range(first, first + card_count):
+        plex = _server(f"Plex{n}", "plex")
+        abs_server = _server(f"Abs{n}", "audiobookshelf")
+        _invite(plex, abs_server, code=f"SHARED{n:02d}", unlimited=True)
+        user = User(
+            token=f"tok{n}",
+            username=f"person{n}",
+            email=f"person{n}@example.com",
+            code=f"SHARED{n:02d}",
+            server_id=plex.id,
+        )
+        db.session.add(user)
+        people.append(user)
+    db.session.commit()
+    db.session.expire_all()
+    with _count_queries() as queries:
+        cards = _group_users_for_display(User.query.order_by(User.id).all())
+        lines = [card.invite_setup() for card in cards]
+    return lines, len(queries)
+
+
+def test_the_setup_line_costs_the_same_queries_for_any_number_of_cards(setup_done):
+    _set_up_mail()
+    lines_one, queries_one = _setup_lines_for(1)
+    lines_many, queries_many = _setup_lines_for(6, first=1)
+    assert lines_one[0] and len(lines_many) == 7
+    # A fixed handful for the page (invitations, progress, mail), however many
+    # cards it has.
+    assert queries_many <= queries_one + 1

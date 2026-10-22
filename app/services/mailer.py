@@ -38,13 +38,19 @@ class MailConfig:
     sender: str
 
 
-def _setting(key: str) -> str:
-    row = Settings.query.filter_by(key=key).first()
-    return (row.value or "").strip() if row else ""
+def _saved() -> dict[str, str]:
+    """Every email setting, in one query."""
+    rows = Settings.query.filter(Settings.key.in_(KEYS.values())).all()
+    return {row.key: (row.value or "").strip() for row in rows}
 
 
 def load_config() -> MailConfig | None:
     """The saved mail server, or None when it isn't set up."""
+    saved = _saved()
+
+    def _setting(key: str) -> str:
+        return saved.get(key, "")
+
     host = _setting(KEYS["host"])
     sender = _setting(KEYS["sender"])
     if not host or not sender:
