@@ -35,7 +35,7 @@ from app.models import (
     invitation_servers,
     invitation_users,
 )
-from app.services import invite_steps
+from app.services import invite_steps, mailer
 from app.services.account_guard import AccountProtected
 from app.services.expiry import get_expiring_this_week_users, reenable_if_renewed
 from app.services.identity_linking import link_user_accounts, primary_account
@@ -404,6 +404,7 @@ def invite_table():
     # 5. Annotate invitations for the template (view-model enrichment)
     # ------------------------------------------------------------------
     progress_by_invite = invite_steps.server_states_for(list(invites))
+    mail_ready = mailer.is_configured() if invites else False
     for inv in invites:
         # ---- expiry / expired ----
         if inv.expires:
@@ -448,7 +449,7 @@ def invite_table():
         # Store library mapping on invitation (not on shared server objects!)
         inv.server_library_map = server_libs
         # Checklist invites: which services the person has set up or skipped
-        uses_steps = invite_steps.uses_steps(inv)
+        uses_steps = invite_steps.uses_steps(inv, mail_ready)
         shared = uses_steps and invite_steps.multi_use(inv)
         inv.step_states = (
             progress_by_invite.get(inv.id, {}) if uses_steps and not shared else {}
@@ -1544,6 +1545,20 @@ def _group_users_for_display(user_list):
         ]
         # Note: allow_downloads and allow_live_tv are properties - no need to set them
         cards.append(primary)
+
+    # The Set up line of every card, from one query for the page and one mail
+    # lookup, not a few of each per card.
+    mail_ready = mailer.is_configured() if invitations else False
+    setup_states = invite_steps.server_states_for_people(
+        {
+            (inv.id, invite_steps.person_for(inv, card.email))
+            for card in cards
+            for inv in card.preloaded_invitations
+        }
+    )
+    for card in cards:
+        card.preloaded_mail_ready = mail_ready
+        card.preloaded_setup_states = setup_states
     return cards
 
 

@@ -266,15 +266,17 @@ class User(db.Model, UserMixin):
 
         rank = {"done": 3, "skipped": 2, "failed": 1, "todo": 0}
         rows: dict[str, str] = {}
+        # The users table sets these for its page, so a card asks no queries.
+        mail_ready = self.__dict__.get("preloaded_mail_ready")
+        preloaded_states = self.__dict__.get("preloaded_setup_states")
         for invitation in self._all_joined_invitations():
-            if not invite_steps.uses_steps(invitation):
+            if not invite_steps.uses_steps(invitation, mail_ready):
                 continue
-            person = (
-                (self.email or "").strip().lower()
-                if invite_steps.multi_use(invitation)
-                else invite_steps.SINGLE_PERSON
-            )
-            states = invite_steps.server_states(invitation, person)
+            person = invite_steps.person_for(invitation, self.email)
+            if preloaded_states is not None:
+                states = preloaded_states.get((invitation.id, person), {})
+            else:
+                states = invite_steps.server_states(invitation, person)
             for step in invite_steps.steps_for(invitation):
                 state = invite_steps.state_of(step, states) or (
                     "failed" if invite_steps.step_failed(step, states) else "todo"

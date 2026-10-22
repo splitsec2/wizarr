@@ -183,7 +183,9 @@ def admin_client(client, admin_user):
 @pytest.fixture
 def legacy_join(monkeypatch):
     """The plain join page, still used by an LDAP invite or one with no steps."""
-    monkeypatch.setattr("app.services.invite_steps.uses_steps", lambda _inv: False)
+    monkeypatch.setattr(
+        "app.services.invite_steps.uses_steps", lambda _inv, _ready=None: False
+    )
 
 
 @pytest.fixture

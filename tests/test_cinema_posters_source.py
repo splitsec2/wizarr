@@ -155,7 +155,9 @@ def test_settings_page_offers_and_saves_the_choice(admin_client):
 @pytest.fixture
 def legacy_join(monkeypatch):
     """The plain join page, still used by an LDAP invite or one with no steps."""
-    monkeypatch.setattr("app.services.invite_steps.uses_steps", lambda _inv: False)
+    monkeypatch.setattr(
+        "app.services.invite_steps.uses_steps", lambda _inv, _ready=None: False
+    )
 
 
 def test_join_page_draws_icons_and_asks_for_no_posters(client, session, legacy_join):
